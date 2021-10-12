@@ -39,7 +39,8 @@ def vae_train(train_data_dir_u, test_data_dir, save_dir, filename, \
         VAE, config = vae_load(cont_path)
     else:
         VAE = burgers_rom_vae(n_latent, activations)
-    VAE = VAE.to(device) optimizer = torch.optim.Adam(VAE.parameters(), lr=lr_schedule(0), weight_decay = wd)
+    VAE = VAE.to(device)
+    optimizer = torch.optim.Adam(VAE.parameters(), lr=lr_schedule(0), weight_decay = wd)
     if cont:
         optimizer.load_state_dict(config['optimizer_state_dict'])    
     beta = beta0

@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 from sklearn.neighbors import KernelDensity
 from scipy.stats import multivariate_normal
 from mpl_toolkits import mplot3d
+from matplotlib.animation import FuncAnimation
 
 plt.close('all')
 
@@ -33,14 +34,14 @@ def vae_load(path):
     #beta_list = 0
     return VAE, loss_reg, loss_rec, beta_list, config
 
-n_latent = 8
+n_latent = 2
 kle = 2
 ntrain = 1000
 ntest = 1000
 
-trials = np.arange(0, 9)
+trials = np.arange(0, 1)
 for trial in trials:
-    load_path = './Burgers1D/n8/VAE_{}'.format(trial)
+    load_path = './Burgers1D/n{}/VAE_{}'.format(n_latent,trial)
     model_name = 'VAE_{}.pth'.format(trial)
 
     save_figs = True
@@ -64,7 +65,7 @@ for trial in trials:
             plt.figure(2)
             plt.plot(zlogvar[:,0].detach().numpy(), zlogvar[:,1].detach().numpy(), '.')
             in_test = u
-            zmu, _, z, out_test, out_test_logvar = VAE.forward(u.view(-1,1,128))
+            zmu, zlogvar, z, out_test, out_test_logvar = VAE.forward(u.view(-1,1,128))
 
             plt.figure(3, figsize = (14.6, 5))
             plt.subplot(2,1,1)
@@ -167,7 +168,69 @@ for trial in trials:
                 plt.plot(g_test[:,j],zmu_test[:,i].detach().numpy(),'r.', markersize = 1)
     '''            
     ztest = zmu.detach().numpy()
-    '''
+    zstd = np.exp(0.5*zlogvar.detach().numpy())
+    plt.figure(335)
+    plt.imshow(np.transpose(ztest[0:100,:]))
+    plt.xlabel('t')
+    plt.ylabel('z')
+    plt.title('Latent Time Evolution')
+    if save_figs:
+        plt.savefig(os.path.join(load_path, 'latent_time_field_{}.png'.format(trial)))
+    
+    fig = plt.figure(336)
+    ax = plt.axes(xlim=(0,n_latent-1), ylim=(np.min(ztest-2*zstd), np.max(ztest+2*zstd)))
+    ax.set_ylabel(r'$z_i$')
+    ax.set_xlabel(r'$i$')
+    ax.set_title('Latent Time Evolution')
+    line, = ax.plot([], [], 'k')
+    lines = []
+    ls = ["-", "--", "--"]
+    for i in range(3):
+        line, = ax.plot([], [], 'k', linestyle = ls[i])
+        lines.append(line)
+    #plt.subplot(1,3,1)
+    def init():
+        for line in lines:
+            line.set_data([], [])
+        return lines
+    def animate(i):
+        #plt.plot(ztest[0,:] + 2*zstd[0,:], 'k--')
+        #plt.plot(ztest[0,:] - 2*zstd[0,:], 'k--')
+        x = np.arange(0,n_latent)
+        y = ztest[i,:]
+        yp = ztest[i,:]+2*zstd[i,:]
+        ym = ztest[i,:]-2*zstd[i,:]
+        xlist = [x, x, x]
+        ylist = [y, yp, ym]
+        for num, line in enumerate(lines):
+            line.set_data(xlist[num],ylist[num])
+        return lines
+
+    anim = FuncAnimation(fig, animate, init_func = init, frames = ntrain, interval=10,blit=True)
+    anim.save(os.path.join(load_path, 'latent_time_snapshots_{}.gif'.format(trial)), writer='imagemagick')
+    plt.figure(337)
+    plt.xlabel(r'$i$')
+    plt.ylabel(r'$z_i$')
+    plt.title('z(0)')
+    plt.subplot(1,2,1)
+    plt.plot(ztest[0,:], 'k', label=r'$z_0$')
+    plt.plot(ztest[0,:] + 2*zstd[0,:], 'k--')
+    plt.plot(ztest[0,:] - 2*zstd[0,:], 'k--')
+    plt.xlabel(r'$i$')
+    plt.ylabel(r'$z_i$')
+    plt.title('z(0)')
+    plt.subplot(1,2,2)
+    plt.plot(ztest[-1,:], 'r', label=r'$z_T$')
+    plt.plot(ztest[-1,:] + 2*zstd[-1,:], 'r--')
+    plt.plot(ztest[-1,:] - 2*zstd[-1,:], 'r--')
+    #plt.legend()
+    plt.xlabel(r'$i$')
+    plt.ylabel(r'$z_i$')
+    plt.title('z(T)')
+    
+    if save_figs:
+        plt.savefig(os.path.join(load_path, 'latent_time_snapshots_{}.png'.format(trial)))
+    ''' 
     kde = KernelDensity(bandwidth = 0.5, kernel = 'gaussian')
     for i in range(n_latent):
         v = np.concatenate((g[:,i], g_test[:,i]), axis = 0)
@@ -177,7 +240,8 @@ for trial in trials:
         plt.subplot(n_latent+1, kle+1, (n_latent*(kle+1) + i + 2))
         plt.xlabel(r'$\theta_{}$'.format(i+1), fontsize = 18)
         plt.plot(plotv, np.exp(lp), 'k--')
-    '''    
+    ''' 
+    plt.figure(339)
     kde = KernelDensity(bandwidth = 0.5, kernel = 'gaussian')
     for i in range(n_latent):
         v = np.concatenate((z[:,i].detach().numpy(), z_test[:,i].detach().numpy()), axis = 0)
