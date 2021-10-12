@@ -31,7 +31,7 @@ def lr_schedule_1(epoch):
 
 
 # dataset and save paths ----------------------------------------------------------------------------------------------
-n_latent = 8               # latent dimension
+n_latent = 2              # latent dimension
         
 train_data_dir_u = 'data/Burgers1D/burgers1d_single.hdf5'   # training data directory
 train_data_dir_l = 'data/DarcyFlow/multimodal/kle2_mc512_bimodal_2.hdf5'     # testing data directory
@@ -82,8 +82,8 @@ if HP:                      # specify the learning rate schedule
         
 else:
     lr_schedule = lr_schedule_0
-    epochs = 1001 # 6500
-    rec_epochs = 1001# 4000
+    epochs = 22001 # 6500
+    rec_epochs = 10001# 4000
 
 
 

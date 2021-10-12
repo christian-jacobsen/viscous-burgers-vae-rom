@@ -38,7 +38,7 @@ kle = 2
 ntrain = 1000
 ntest = 1000
 
-trials = np.arange(0, 5)
+trials = np.arange(0, 9)
 for trial in trials:
     load_path = './Burgers1D/n8/VAE_{}'.format(trial)
     model_name = 'VAE_{}.pth'.format(trial)
@@ -74,23 +74,15 @@ for trial in trials:
             plt.imshow(np.transpose(out_test[:,0,:].detach().numpy()), cmap = 'jet')
             #plt.colorbar()
 
-    plt.savefig(os.path.join(load_path, 'recon_{}.png'.format(trial)))
-    '''        
-    for n, (g_test, _, output) in enumerate(test_loader):
+    #plt.savefig(os.path.join(load_path, 'recon_{}.png'.format(trial)))
+
+    for n, (u, t) in enumerate(test_loader):
+        u = u.float()
         if n == 0:
             #in_test = output
-            zmu_test, zlogvar_test, z_test, out_test_test, _ = VAE.forward(output)
+            zmu_test, zlogvar_test, z_test, out_test_test, _ = VAE.forward(u)
 
     print('z shape: ', np.shape(zmu))
-    plt.figure(23)
-    plt.subplot(2,2,1)
-    plt.imshow(perm[0,0,:,:], cmap = 'jet')
-    plt.subplot(2,2,2)
-    plt.imshow(output[0,0,:,:], cmap='jet')
-    plt.subplot(2,2,3)
-    plt.imshow(output[0,1,:,:], cmap = 'jet')
-    plt.subplot(2,2,4)
-    plt.imshow(output[0,2,:,:], cmap='jet')
 
     plt.figure(43)
     plt.plot(beta, lw=3)
@@ -103,24 +95,39 @@ for trial in trials:
 
     in_test = in_test.detach().numpy()
     out_test = out_test.detach().numpy()
+    out_test_logvar = out_test_logvar.detach().numpy()
+    out_test_var = np.exp(out_test_logvar)
     x = np.linspace(0, 1, 65)
     y = np.linspace(0, 1, 65)
     [X,Y] = np.meshgrid(x,y)
 
-    in_test = in_test[0,1,:,:]
-    out_test = out_test[0,1,:,:]
-    plt.figure(4, figsize = (14.6, 3.5))
-    plt.subplot(1,3,1)
-    plt.imshow(in_test, cmap = 'jet')
+    in_test = in_test[:,0,:]
+    out_test = out_test[:,0,:]
+    plt.figure(4, figsize = (24, 20))
+    plt.subplot(4,1,1)
+    plt.imshow(np.transpose(in_test), cmap = 'jet')
     plt.title('Data Sample', fontsize = 16)
+    plt.xlabel('t')
+    plt.ylabel('x')
     plt.colorbar()
-    plt.subplot(1,3,2)
-    plt.imshow(out_test, cmap = 'jet')
+    plt.subplot(4,1,2)
+    plt.imshow(np.transpose(out_test), cmap = 'jet')
     plt.title('Reconstructed Mean', fontsize = 16)
+    plt.xlabel('t')
+    plt.ylabel('x')
     plt.colorbar()
-    plt.subplot(1,3,3)
-    plt.imshow(in_test-out_test, cmap = 'jet')
+    plt.subplot(4,1,3)
+    plt.imshow(np.transpose(in_test-out_test), cmap = 'jet')
     plt.title('Error in Mean', fontsize = 16)
+    plt.xlabel('t')
+    plt.ylabel('x')
+    plt.colorbar()
+    plt.subplot(4,1,4)
+    print(np.shape(out_test_var))
+    plt.imshow(np.transpose(np.tile(out_test_var,(ntrain,1))), cmap='jet')
+    plt.title('Reconstructed Variance', fontsize=16)
+    plt.xlabel('t')
+    plt.ylabel('x')
     plt.colorbar()
     if save_figs:
         plt.savefig(os.path.join(load_path, 'recon_{}.png'.format(trial)))
@@ -139,9 +146,10 @@ for trial in trials:
 
     plt.figure(13)
     ind = config['epochs'] - 1250
-
+    
     # plot all latent data correlations with gen parameters
     plt.figure(6, figsize = (13, 13))
+    '''
     count = 0
     for i in range(n_latent):
         for j in range(kle):
@@ -157,9 +165,9 @@ for trial in trials:
             else:
                 plt.plot(g[:,j], zmu[:,i].detach().numpy(), 'k.', markersize = 1)
                 plt.plot(g_test[:,j],zmu_test[:,i].detach().numpy(),'r.', markersize = 1)
-                
+    '''            
     ztest = zmu.detach().numpy()
-
+    '''
     kde = KernelDensity(bandwidth = 0.5, kernel = 'gaussian')
     for i in range(n_latent):
         v = np.concatenate((g[:,i], g_test[:,i]), axis = 0)
@@ -169,7 +177,7 @@ for trial in trials:
         plt.subplot(n_latent+1, kle+1, (n_latent*(kle+1) + i + 2))
         plt.xlabel(r'$\theta_{}$'.format(i+1), fontsize = 18)
         plt.plot(plotv, np.exp(lp), 'k--')
-        
+    '''    
     kde = KernelDensity(bandwidth = 0.5, kernel = 'gaussian')
     for i in range(n_latent):
         v = np.concatenate((z[:,i].detach().numpy(), z_test[:,i].detach().numpy()), axis = 0)
@@ -182,6 +190,17 @@ for trial in trials:
     if save_figs:
         plt.savefig(os.path.join(load_path, 'disentanglement_{}.png'.format(trial)))
 
+    plt.figure(333, figsize=(20, 10))
+    for i in range(n_latent):
+        plt.subplot(1,n_latent,i+1)
+        plt.plot(t,ztest[:,i],'k')
+        plt.xlabel('t')
+        plt.ylabel(r'$z_{}$'.format(i+1))
+        plt.title('Latent Dim Over Time')
+    if save_figs:
+        plt.savefig(os.path.join(load_path, 'latent_model_{}.png'.format(trial)))
+        
+    '''
     ztest = zmu.detach().numpy()
     ztest = ztest[:,0:2]
     g = g[:,0:2]
@@ -209,7 +228,6 @@ for trial in trials:
     plt.legend(proxy, ['Aggregated Posterior', 'Generative Parameters', 'Prior'], prop={"size":16}, loc = 2)
     if save_figs:
         plt.savefig(os.path.join(load_path, 'agg_post_comparison_{}.png'.format(trial)))
-
     plt.figure(27)
     plt.plot(zmu[:,0].detach().numpy(), zmu[:,1].detach().numpy(), 'k.', markersize = 1, label = 'Train Data')
     plt.plot(zmu_test[:,0].detach().numpy(), zmu_test[:,1].detach().numpy(), 'r.', markersize = 1, label = 'Test Data')
@@ -218,6 +236,8 @@ for trial in trials:
     plt.title(r'Samples from $q_\phi(z)$')
     if save_figs:
         plt.savefig(os.path.join(load_path, 'agg_post_samples_{}.png'.format(trial)))
+    '''    
+    plt.figure(334)
     plt.semilogy(config['gradient_list'], 'k')
     plt.xlabel('Epoch')
     plt.ylabel('Loss Gradient Norm')
@@ -225,4 +245,3 @@ for trial in trials:
         plt.savefig(os.path.join(load_path, 'grad_norm_{}.png'.format(trial)))
 
     plt.close('all')
-    '''
