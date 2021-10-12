@@ -7,6 +7,7 @@ Created on Fri Mar 26 17:41:10 2021
 
 from burgers_rom_vae import *
 from load_data_new import load_data_new
+from load_data_sub import load_data_sub
 import torch
 import numpy as np
 
@@ -29,6 +30,7 @@ def vae_train(train_data_dir_u, test_data_dir, save_dir, filename, \
                        data_channels, initial_features, dense_blocks, growth_rate, n_latent, \
                        prior, activations, cont, cont_path):
 
+    sub_batch_size = 100 
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(device)
@@ -52,50 +54,54 @@ def vae_train(train_data_dir_u, test_data_dir, save_dir, filename, \
     beta_list = np.zeros((epochs,))
     grad_list = np.zeros((epochs,))
     VAE.train()
-    
+
+    print_epochs = 1 
+
     for epoch in range(epochs):
-        if epoch % 10 == 0:
+        if epoch % print_epochs == 0:
             print('=======================================')
             print('Epoch: ', epoch) 
         optimizer.param_groups[0]['lr'] = lr_schedule(epoch) #update learning rate
         
-        for n, (u, _) in enumerate(train_loader_u):
-            u = u.to(device, dtype=torch.float)
-            if epoch==0: # compute initialized losses
-                _, _, _, _, _, l_rec, l_reg = VAE.compute_loss(u)
-                l_rec_0 = torch.mean(l_rec)
-                l_reg_0 = torch.mean(l_reg)
-                #l_ss_0 = torch.mean(l_ss) 
-            
-            optimizer.zero_grad()
-    
-            _, _, _, _, _, l_rec, l_reg = VAE.compute_loss(u)
-            
-            l_rec = torch.mean(l_rec)
-            #l_ss = torch.mean(l_ss)
-            if epoch < rec_epochs:
-                if torch.mean(l_reg) > 1e10:
-                    beta = 1
+        for n, (u, _, _) in enumerate(train_loader_u):
+            sub_loader, sub_stats = load_data_sub(u, sub_batch_size)
+            for m, (us, _) in enumerate(sub_loader):
+                us = us.to(device, dtype=torch.float)
+                if epoch==0: # compute initialized losses
+                    _, _, _, _, _, l_rec, l_reg = VAE.compute_loss(us)
+                    l_rec_0 = torch.mean(l_rec)
+                    l_reg_0 = torch.mean(l_reg)
+                    #l_ss_0 = torch.mean(l_ss) 
+                
+                optimizer.zero_grad()
+        
+                _, _, _, _, _, l_rec, l_reg = VAE.compute_loss(us)
+                
+                l_rec = torch.mean(l_rec)
+                #l_ss = torch.mean(l_ss)
+                if epoch < rec_epochs:
+                    if torch.mean(l_reg) > 1e10:
+                        beta = 1
+                    else:
+                        beta = beta0
+                    loss = l_rec# + l_ss
                 else:
-                    beta = beta0
-                loss = l_rec# + l_ss
-            else:
-                beta = VAE.update_beta(beta, l_rec, nu, tau)
-                if beta > 1:
-                    beta = 1
-                
-                loss = beta*(torch.mean(l_reg)) + l_rec# + l_ss
-                
-            loss.backward()
-            total_norm = 0
-            for p in  VAE.parameters():
-                total_norm = p.grad.detach().data.norm(2).item() **2 + total_norm
-            total_norm = total_norm ** 0.5
+                    beta = VAE.update_beta(beta, l_rec, nu, tau)
+                    if beta > 1:
+                        beta = 1
+                    
+                    loss = beta*(torch.mean(l_reg)) + l_rec# + l_ss
+                    
+                loss.backward()
+                total_norm = 0
+                for p in  VAE.parameters():
+                    total_norm = p.grad.detach().data.norm(2).item() **2 + total_norm
+                total_norm = total_norm ** 0.5
 
-            if total_norm <= 1e8: 
-                optimizer.step()
-            else:
-                print('Grad too large!')
+                if total_norm <= 1e8: 
+                    optimizer.step()
+                else:
+                    print('Grad too large!')
             
             
             l_reg = torch.mean(l_reg)
@@ -109,7 +115,7 @@ def vae_train(train_data_dir_u, test_data_dir, save_dir, filename, \
             beta_list[epoch] = beta
             grad_list[epoch] = total_norm
 
-        if epoch % 10 == 0:
+        if epoch % print_epochs == 0:
             print('beta = ', beta)
             print('l_rec = ', l_rec)
             print('l_reg = ', l_reg)   

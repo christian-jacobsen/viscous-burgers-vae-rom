@@ -50,14 +50,26 @@ def IC(x0, phi):
     u0 = np.reshape(u0, (n,1))
     return u0
 
-x0 = np.linspace(0,1,128)
+n_ic = 10
+
+nx = 128
+x0 = np.linspace(0,1,nx)
 dx = x0[1]-x0[0]
 dt = 0.2*dx
 nsteps = 1000
-phi = 1
-u0 = IC(x0, phi)
-U, T= RK4(u0, dx, dt, F, nsteps)
 
+#preallocate data storage arrays
+Usave = np.zeros((n_ic, 1, nsteps, nx))
+Tsave = np.zeros((n_ic, nsteps)) 
+phisave = np.zeros((n_ic,))
+for i in range(n_ic):
+    phi = np.random.rand(1)*2 + 0.5
+    u0 = IC(x0, phi)
+    U, T= RK4(u0, dx, dt, F, nsteps)
+    Usave[i,0,:,:] = np.transpose(U)
+    Tsave[i,:] = T
+    phisave[i] = phi
+'''
 plt.figure(1)
 plt.plot(x0,U[:,0])
 plt.plot(x0,U[:,-1])
@@ -74,16 +86,14 @@ plt.savefig("./burgers1d_surf.png")
 plt.figure(3)
 plt.imshow(U, cmap='jet')
 plt.savefig("./burgers1d_field.png")
-
-U = np.transpose(U)
-U = np.reshape(U, (nsteps, 1, -1))
-T = np.reshape(T, (nsteps, 1))
-f1 = h5py.File("./data/Burgers1D/burgers1d_single.hdf5","w")
-f1.create_dataset("u", np.shape(U), data=U)
-f1.create_dataset("t", np.shape(T), data=T)
+'''
+f1 = h5py.File("./data/Burgers1D/burgers1d_ic_{}.hdf5".format(n_ic),"w")
+f1.create_dataset("u", np.shape(Usave), data=Usave)
+f1.create_dataset("t", np.shape(Tsave), data=Tsave)
+f1.create_dataset("phi", np.shape(phisave), data=phisave)
 f1.close
 
-print("Saved shape of U: ", np.shape(U))
-print("Saved shape of T: ", np.shape(T))
+print("Saved shape of U: ", np.shape(Usave))
+print("Saved shape of T: ", np.shape(Tsave))
 
 

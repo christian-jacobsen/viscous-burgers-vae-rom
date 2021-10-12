@@ -7,6 +7,7 @@ Created on Wed Apr  7 11:27:37 2021
 
 from burgers_rom_vae import *
 from load_data_new import load_data_new
+from load_data_sub import load_data_sub
 import os
 import torch
 import numpy as np
@@ -34,55 +35,45 @@ def vae_load(path):
     #beta_list = 0
     return VAE, loss_reg, loss_rec, beta_list, config
 
-n_latent = 2
-kle = 2
+n_latent = 8
+n_ic = 10
 ntrain = 1000
 ntest = 1000
 
 trials = np.arange(0, 1)
 for trial in trials:
-    load_path = './Burgers1D/n{}/VAE_{}'.format(n_latent,trial)
+    load_path = './Burgers1D/ic_{}/n{}/VAE_{}'.format(n_ic,n_latent,trial)
     model_name = 'VAE_{}.pth'.format(trial)
 
     save_figs = True
 
-    train_data_dir = 'data/Burgers1D/burgers1d_single.hdf5'.format(kle, ntrain)#
-    test_data_dir = 'data/Burgers1D/burgers1d_single.hdf5'.format(kle, ntest)#
+    train_data_dir = 'data/Burgers1D/burgers1d_ic_{}.hdf5'.format(n_ic)#
+    test_data_dir = 'data/Burgers1D/burgers1d_ic_{}.hdf5'.format(n_ic)#
 
-    train_loader, train_stats = load_data_new(train_data_dir, ntrain, shuff=False)
-    test_loader, test_stats = load_data_new(test_data_dir, ntest, shuff=False)
+    train_loader, train_stats = load_data_new(train_data_dir, n_ic, shuff=False)
+    test_loader, test_stats = load_data_new(test_data_dir, n_ic, shuff=False)
 
     VAE, loss_reg, loss_rec, beta, config = vae_load(os.path.join(load_path, model_name))
     print('Rec loss: ', loss_rec[-1])
     print('Loss: ', loss_reg[-1] + loss_rec[-1])
         
-    for n, (u, _) in enumerate(train_loader):
-        u = u.float()
-        if n == 0:
-            zmu, zlogvar, _, _, _ = VAE.forward(u.view(-1, 1, 128))
-            plt.figure(1)
-            plt.plot(zmu[:,0].detach().numpy(), zmu[:,1].detach().numpy(), '.')
-            plt.figure(2)
-            plt.plot(zlogvar[:,0].detach().numpy(), zlogvar[:,1].detach().numpy(), '.')
-            in_test = u
-            zmu, zlogvar, z, out_test, out_test_logvar = VAE.forward(u.view(-1,1,128))
-
-            plt.figure(3, figsize = (14.6, 5))
-            plt.subplot(2,1,1)
-            plt.imshow(np.transpose(u[:,0,:]), cmap = 'jet')
-            #plt.colorbar()
-            plt.subplot(2,1,2)
-            plt.imshow(np.transpose(out_test[:,0,:].detach().numpy()), cmap = 'jet')
-            #plt.colorbar()
-
-    #plt.savefig(os.path.join(load_path, 'recon_{}.png'.format(trial)))
-
+    for n, (u, _, _) in enumerate(train_loader):
+        sub_loader, sub_stats = load_data_sub(u, ntrain*n_ic, shuff=False)
+        for m, (us, _) in enumerate(sub_loader):
+            us = us.float()
+            u = u.float()
+            if n == 0:
+                zmu, zlogvar, z, out_test, out_test_logvar = VAE.forward(us)
+                in_test = us
+        U = u
+    # test data
     for n, (u, t) in enumerate(test_loader):
+        sub_loader, sub_stats = load_data_sub(u, test*n_ic, shuff=False)
+        us = us.float()
         u = u.float()
-        if n == 0:
-            #in_test = output
-            zmu_test, zlogvar_test, z_test, out_test_test, _ = VAE.forward(u)
-
+            if n == 0:
+                #in_test = output
+                zmu_test, zlogvar_test, z_test, out_test_test, _ = VAE.forward(us)
     print('z shape: ', np.shape(zmu))
 
     plt.figure(43)
@@ -98,12 +89,12 @@ for trial in trials:
     out_test = out_test.detach().numpy()
     out_test_logvar = out_test_logvar.detach().numpy()
     out_test_var = np.exp(out_test_logvar)
-    x = np.linspace(0, 1, 65)
-    y = np.linspace(0, 1, 65)
-    [X,Y] = np.meshgrid(x,y)
+    out_test_var = np.tile(out_test_var,(ntrain,1))
 
-    in_test = in_test[:,0,:]
-    out_test = out_test[:,0,:]
+    s = np.random.randint(0,n_ic) # random sample to show recon on
+    in_test = in_test[s*ntrain:(s+1)*ntrain,0,:]
+    out_test = out_test[s*ntrain:(s+1)*ntrain,0,:]
+
     plt.figure(4, figsize = (24, 20))
     plt.subplot(4,1,1)
     plt.imshow(np.transpose(in_test), cmap = 'jet')
@@ -125,7 +116,7 @@ for trial in trials:
     plt.colorbar()
     plt.subplot(4,1,4)
     print(np.shape(out_test_var))
-    plt.imshow(np.transpose(np.tile(out_test_var,(ntrain,1))), cmap='jet')
+    plt.imshow(np.transpose(out_test_var), cmap='jet')
     plt.title('Reconstructed Variance', fontsize=16)
     plt.xlabel('t')
     plt.ylabel('x')

@@ -18,19 +18,18 @@ def load_data_new(data_dir, batch_size, shuff = True):
     with h5py.File(data_dir, 'r') as f:
         u_data = f['u'][()]
         t_data = f['t'][()]
-        #y_data = f['sdfa'][()]
-        
+        phi_data = f['phi'][()] 
     
     print("solution data shape: {}".format(u_data.shape))
     print("time data shape: {}".format(t_data.shape))
-    #print("output data shape: {}".format(y_data.shape))
+    print("phi data shape: {}".format(phi_data.shape))
     
     
 
     kwargs = {'num_workers': 0,
               'pin_memory': True} if torch.cuda.is_available() else {}
 
-    dataset = TensorDataset(torch.tensor(u_data), torch.tensor(t_data))#, torch.tensor(y_data))
+    dataset = TensorDataset(torch.tensor(u_data), torch.tensor(t_data), torch.tensor(phi_data))
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuff, **kwargs)
 
     # simple statistics of output data
