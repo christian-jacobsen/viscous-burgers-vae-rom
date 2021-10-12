@@ -39,7 +39,7 @@ if __name__ == '__main__':
         save_dir = save_dir_temp
         
         vae_train(train_data_dir_u, test_data_dir, save_dir, filename, \
-                                 epochs, rec_epochs, batch_size_u, test_batch_size, \
+                                 epochs, rec_epochs, batch_size_u, test_batch_size, nt, \
                                  wd, beta0, lr_schedule, nu, tau, \
                                  data_channels, initial_features, dense_blocks, growth_rate, n_latent, \
                                  prior, act, continue_training, continue_path)

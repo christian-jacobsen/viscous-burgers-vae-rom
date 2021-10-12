@@ -56,7 +56,7 @@ nx = 128
 x0 = np.linspace(0,1,nx)
 dx = x0[1]-x0[0]
 dt = 0.2*dx
-nsteps = 1000
+nsteps = 1200
 
 #preallocate data storage arrays
 Usave = np.zeros((n_ic, 1, nsteps, nx))

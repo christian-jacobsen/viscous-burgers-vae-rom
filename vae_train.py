@@ -25,7 +25,7 @@ def vae_load(path):
     return VAE, config
 
 def vae_train(train_data_dir_u, test_data_dir, save_dir, filename, \
-                       epochs, rec_epochs, batch_size_u, test_batch_size, \
+                       epochs, rec_epochs, batch_size_u, test_batch_size, nt,\
                        wd, beta0, lr_schedule, nu, tau, \
                        data_channels, initial_features, dense_blocks, growth_rate, n_latent, \
                        prior, activations, cont, cont_path):
@@ -35,7 +35,7 @@ def vae_train(train_data_dir_u, test_data_dir, save_dir, filename, \
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(device)
        
-    train_loader_u, train_stats_u = load_data_new(train_data_dir_u, batch_size_u) # unlabeled data
+    train_loader_u, train_stats_u = load_data_new(train_data_dir_u, batch_size_u, nt) # unlabeled data
     
     if cont:
         VAE, config = vae_load(cont_path)
@@ -147,6 +147,7 @@ def vae_train(train_data_dir_u, test_data_dir, save_dir, filename, \
               'initial_features': initial_features,
               'growth_rate': growth_rate,
               'batch_size_u': batch_size_u,
+              'nt': nt,
               'test_batch_size': test_batch_size,
               'optimizer': optimizer,
               'prior': prior,
