@@ -6,6 +6,7 @@ Created on Wed Apr  7 11:27:37 2021
 """
 
 from burgers_rom_vae import *
+from rom_vae_dilated import *
 from load_data_new import load_data_new
 from load_data_sub import load_data_sub
 import os
@@ -27,7 +28,7 @@ def vae_load(path):
     n_latent = config['n_latent']
     dense_blocks = config['dense_blocks']
     act = config['activations']
-    VAE = burgers_rom_vae(n_latent, act = act)
+    VAE = rom_vae_dilated(n_latent, act = act)
     VAE.load_state_dict(config['model_state_dict'])
     loss_reg = config['l_reg']
     loss_rec = config['l_rec']
@@ -35,11 +36,12 @@ def vae_load(path):
     #beta_list = 0
     return VAE, loss_reg, loss_rec, beta_list, config
 
-n_latent = 8
-n_ic = 1
+n_latent = 8 # latent space dimension
+n_ic = 1   # number of initial conditions in dataset (for outer loop batches)
 ntest = 600    # number of time snapshots to test (the first ntrain were used in training)
 
-trials = np.arange(9, 10)
+
+trials = np.arange(20, 21)
 
 for trial in trials:
     load_path = './Burgers1D/ic_{}/n{}/VAE_{}'.format(n_ic,n_latent,trial)
@@ -108,8 +110,12 @@ for trial in trials:
     out_var_test_test = np.exp(out_logvar_test_test)
     out_var_test_test = np.tile(out_var_test_test,(ntest,1))
 
+<<<<<<< HEAD
+    
+=======
     train_test_error = np.mean((out_test-out_test_test[0:ntrain,0,:])**2)
     print('Average error between same data: ', train_test_error)
+>>>>>>> main
 
     # plot reconstruction of spatio-temporal fields
     s = np.random.randint(0,n_ic) # random sample to show recon on <<--------- random sample -----------
@@ -329,6 +335,8 @@ for trial in trials:
                 writer='imagemagick')
     
     # plot evolution of reconstructed solution over time (gif) [training time only]
+    in_test = in_test_test[s*ntest:(s+1)*ntest,0,:]
+    out_test = out_test_test[s*ntest:(s+1)*ntest,0,:]
     fig = plt.figure(978)
     ax = plt.axes(xlim=(0,1), ylim=(-1.1, 1.1))
     ax.set_ylabel(r'$x$')

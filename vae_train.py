@@ -6,10 +6,12 @@ Created on Fri Mar 26 17:41:10 2021
 """
 
 from burgers_rom_vae import *
+from rom_vae_dilated import *
 from load_data_new import load_data_new
 from load_data_sub import load_data_sub
 import torch
 import numpy as np
+import time
 
 
 def vae_load(path):
@@ -30,7 +32,7 @@ def vae_train(train_data_dir_u, test_data_dir, save_dir, filename, \
                        data_channels, initial_features, dense_blocks, growth_rate, n_latent, \
                        prior, activations, cont, cont_path):
 
-    sub_batch_size = 100 
+    sub_batch_size = nt // 10
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(device)
@@ -40,13 +42,12 @@ def vae_train(train_data_dir_u, test_data_dir, save_dir, filename, \
     if cont:
         VAE, config = vae_load(cont_path)
     else:
-        VAE = burgers_rom_vae(n_latent, activations)
+        VAE = rom_vae_dilated(n_latent, activations)
     VAE = VAE.to(device)
     optimizer = torch.optim.Adam(VAE.parameters(), lr=lr_schedule(0), weight_decay = wd)
     if cont:
         optimizer.load_state_dict(config['optimizer_state_dict'])    
     beta = beta0
-
 
     l_rec_list = np.zeros((epochs,))
     l_reg_list = np.zeros((epochs,))
@@ -55,8 +56,8 @@ def vae_train(train_data_dir_u, test_data_dir, save_dir, filename, \
     grad_list = np.zeros((epochs,))
     VAE.train()
 
-    print_epochs = 1 
-
+    print_epochs = 10
+    t_start = time.time()
     for epoch in range(epochs):
         if epoch % print_epochs == 0:
             print('=======================================')
@@ -116,10 +117,12 @@ def vae_train(train_data_dir_u, test_data_dir, save_dir, filename, \
             grad_list[epoch] = total_norm
 
         if epoch % print_epochs == 0:
+            t_mid = time.time()
             print('beta = ', beta)
             print('l_rec = ', l_rec)
             print('l_reg = ', l_reg)   
             #print('l_ss  = ', l_ss)
+            print('Estimated time to completion: ', (t_mid-t_start)/((epoch+1)*60)*(epochs-epoch+1), " minutes")
     '''    
     for n, (u, _) in enumerate(train_loader_u):
         if n == 0:

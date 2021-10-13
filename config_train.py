@@ -12,8 +12,11 @@ import torch.nn as nn
 
 def lr_schedule_0(epoch):
     # used for VAE w/out HP network
-    e0 = 19500
+    e0 = 2500
+    e1 = 7500
     if epoch < e0:
+        return 0.002
+    elif epoch < e1:
         return 0.001
     else:
         return 0.0005
@@ -33,7 +36,8 @@ def lr_schedule_1(epoch):
 # dataset and save paths ----------------------------------------------------------------------------------------------
 n_latent = 8              # latent dimension
 n_ic = 1                 # number of initial conditions (for dataset)
-nt = 400                 # number of time snapshots to train on
+nt = 10                 # number of time snapshots to train on
+arch = 'dilated-denseblock'  # architecture specifying 'encoder-decoder' type (not working)
 
 train_data_dir_u = 'data/Burgers1D/burgers1d_ic_{}.hdf5'.format(n_ic)   # training data directory
 train_data_dir_l = 'data/DarcyFlow/multimodal/kle2_mc512_bimodal_2.hdf5'     # testing data directory
@@ -84,8 +88,8 @@ if HP:                      # specify the learning rate schedule
         
 else:
     lr_schedule = lr_schedule_0
-    epochs = 5000 # 6500
-    rec_epochs = 2500# 4000
+    epochs = 3000 # 6500
+    rec_epochs = 3000# 4000
 
 
 
