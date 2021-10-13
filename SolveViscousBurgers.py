@@ -50,7 +50,7 @@ def IC(x0, phi):
     u0 = np.reshape(u0, (n,1))
     return u0
 
-n_ic = 10
+n_ic = 1
 
 nx = 128
 x0 = np.linspace(0,1,nx)

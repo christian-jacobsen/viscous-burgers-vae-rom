@@ -36,22 +36,23 @@ def vae_load(path):
     return VAE, loss_reg, loss_rec, beta_list, config
 
 n_latent = 8
-n_ic = 10
+n_ic = 1
 ntest = 1200    # number of time snapshots to test (the first ntrain were used in training)
 
-trials = np.arange(3, 4)
+trials = np.arange(9, 10)
+
 for trial in trials:
     load_path = './Burgers1D/ic_{}/n{}/VAE_{}'.format(n_ic,n_latent,trial)
     model_name = 'VAE_{}.pth'.format(trial)
 
     save_figs = True
-    save_gif = False
+    save_gifs = False
 
     train_data_dir = 'data/Burgers1D/burgers1d_ic_{}.hdf5'.format(n_ic)#
     test_data_dir = 'data/Burgers1D/burgers1d_ic_{}.hdf5'.format(n_ic)#
 
     VAE, loss_reg, loss_rec, beta, config = vae_load(os.path.join(load_path, model_name))
-    ntrain = 1000 #config['nt'] # number of time snapshots trained on
+    ntrain = config['nt'] # number of time snapshots trained on
     nstest = ntest - ntrain # the total number of unseen time snapshots
 
     train_loader, train_stats = load_data_new(train_data_dir, n_ic, ntrain, shuff=False)
@@ -193,19 +194,23 @@ for trial in trials:
     plt.colorbar()
     plt.subplot(4,1,2)
     plt.imshow(np.transpose(out_test), cmap = 'jet')
+    plt.plot([ntrain,ntrain],[0,nx], 'k--', lw=3)
     plt.title('Mean', fontsize = 16)
     plt.xlabel('t')
     plt.ylabel('x')
     plt.colorbar()
     plt.subplot(4,1,3)
     plt.imshow(np.transpose(in_test-out_test), cmap = 'jet')
+    plt.plot([ntrain,ntrain],[0,nx], 'k--', lw=3)
     plt.title('Error in Mean', fontsize = 16)
     plt.xlabel('t')
     plt.ylabel('x')
     plt.colorbar()
     plt.subplot(4,1,4)
     #print(np.shape(out_test_var))
-    plt.imshow(np.transpose(out_test_var), cmap='jet')
+    plt.imshow(np.transpose(out_var_test_test), cmap='jet')
+    plt.plot([ntrain,ntrain],[0,nx], 'k--', lw=3, label='Final Training Time')
+    plt.legend()
     plt.title('Variance', fontsize=16)
     plt.xlabel('t')
     plt.ylabel('x')
@@ -225,8 +230,8 @@ for trial in trials:
     plt.subplot(1,3,1)
     plt.plot(nxv, in_test[0,:], 'k', label=r'$u_{T+1}$')
     plt.plot(nxv, out_test[0,:], 'k--', label='Prediction Mean')
-    plt.fill_between(nxv, out_test[0,:]+2*out_test_var[0,:],
-            out_test[0,:]-2*out_test_var[0,:], color='black', alpha = 0.2, label = r'$\pm 2\sigma$')
+    plt.fill_between(nxv, out_test[0,:]+2*out_var_test_test[0,:],
+            out_test[0,:]-2*out_var_test_test[0,:], color='black', alpha = 0.2, label = r'$\pm 2\sigma$')
     plt.legend()
     plt.title('Single Time Snapshot Prediction')
     plt.xlabel('x')
@@ -234,8 +239,8 @@ for trial in trials:
     plt.subplot(1,3,2)
     plt.plot(nxv, in_test[nstest//2,:], 'b', label=r'$u_{T+100}$')
     plt.plot(nxv, out_test[nstest//2,:], 'b--', label='Prediction Mean')
-    plt.fill_between(nxv, out_test[nstest//2,:]+2*out_test_var[nstest//2,:],
-            out_test[nstest//2,:]-2*out_test_var[nstest//2,:], color='blue', alpha = 0.2, label = r'$\pm 2\sigma$')
+    plt.fill_between(nxv, out_test[nstest//2,:]+2*out_var_test_test[nstest//2,:],
+            out_test[nstest//2,:]-2*out_var_test_test[nstest//2,:], color='blue', alpha = 0.2, label = r'$\pm 2\sigma$')
     plt.legend()
     plt.title('Single Time Snapshot Prediction')
     plt.xlabel('x')
@@ -243,8 +248,8 @@ for trial in trials:
     plt.subplot(1,3,3)
     plt.plot(nxv, in_test[-1,:], 'r', label=r'$u_{T+200}$')
     plt.plot(nxv, out_test[-1,:], 'r--', label='Prediction Mean')
-    plt.fill_between(nxv, out_test[-1,:]+2*out_test_var[-1,:],
-            out_test[-1,:]-2*out_test_var[-1,:], color='red', alpha = 0.2, label = r'$\pm 2\sigma$')
+    plt.fill_between(nxv, out_test[-1,:]+2*out_var_test_test[-1,:],
+            out_test[-1,:]-2*out_var_test_test[-1,:], color='red', alpha = 0.2, label = r'$\pm 2\sigma$')
     plt.legend()
     plt.title('Single Time Snapshot Prediction')
     plt.xlabel('x')
@@ -270,27 +275,14 @@ for trial in trials:
     
     # visualize the latent-time field
     plt.figure(6, figsize = (13, 13))
-    '''
-    count = 0
-    for i in range(n_latent):
-        for j in range(kle):
-            if j == 0:
-                count = count + 2
-            else:
-                count = count + 1
-            plt.subplot(n_latent+1, kle+1, count)
-            if (i == 0) & (j==kle-1):
-                plt.plot(g[:,j], zmu[:,i].detach().numpy(), 'k.', markersize = 1, label = 'Train Data')
-                plt.plot(g_test[:,j],zmu_test[:,i].detach().numpy(),'r.', markersize = 1, label = 'Test Data')
-                plt.legend(prop={"size":14}, markerscale = 3.)
-            else:
-                plt.plot(g[:,j], zmu[:,i].detach().numpy(), 'k.', markersize = 1)
-                plt.plot(g_test[:,j],zmu_test[:,i].detach().numpy(),'r.', markersize = 1)
-    '''            
-    ztest = zmu.detach().numpy()
+    
+    zmu = zmu.detach().numpy()
+    zmu_test = zmu_test.detach().numpy()
     zstd = np.exp(0.5*zlogvar.detach().numpy())
+    zstd_test = np.exp(0.5*zlogvar_test.detach().numpy())
+
     plt.figure(335)
-    plt.imshow(np.transpose(ztest[s*ntrain:s*ntrain+50,:]))
+    plt.imshow(np.transpose(zmu_test[s*ntrain:s*ntrain+50,:]))
     plt.xlabel('t')
     plt.ylabel('z')
     plt.title('Latent Time Evolution')
@@ -299,7 +291,7 @@ for trial in trials:
     
     # plot evolutions of individual latent dimensions over time (gif)
     fig = plt.figure(336)
-    ax = plt.axes(xlim=(0,n_latent-1), ylim=(np.min(ztest-2*zstd), np.max(ztest+2*zstd)))
+    ax = plt.axes(xlim=(0,n_latent-1), ylim=(np.min(zmu-2*zstd), np.max(zmu+2*zstd)))
     ax.set_ylabel(r'$z_i$')
     ax.set_xlabel(r'$i$')
     ax.set_title('Latent Time Evolution')
@@ -317,40 +309,76 @@ for trial in trials:
         fb.set_verts([])
         return line, fb,
     def animate(i):
-        i = i + s*ntrain
+        i = i + s*ntest
 
         x = np.arange(0,n_latent)
-        y = ztest[i,:]
-        yp = ztest[i,:]+2*zstd[i,:]
-        ym = ztest[i,:]-2*zstd[i,:]
-        xlist = [x, x, x]
-        ylist = [y, yp, ym]
+        y = zmu_test[i,:]
+        yp = y+2*zstd_test[i,:]
+        ym = y-2*zstd_test[i,:]
         data = np.concatenate((x,np.flip(x)))
         datay = np.concatenate((yp,np.flip(ym)))
         data = np.vstack((data,datay))
         fb.set_verts([np.transpose(data)])
         #for num, line in enumerate(lines):
-        line.set_data(xlist[0],ylist[0])
+        line.set_data(x,y)
         return line, fb,
-    if save_gif:
+    if save_gifs:
         anim = FuncAnimation(fig, animate, init_func = init, frames = ntest, interval=10,blit=True)
         anim.save(os.path.join(load_path, 'latent_time_snapshots_{}.gif'.format(trial)), 
                 writer='imagemagick')
+    
+    # plot evolution of reconstructed solution over time (gif) [training time only]
+    fig = plt.figure(978)
+    ax = plt.axes(xlim=(0,1), ylim=(-1.1, 1.1))
+    ax.set_ylabel(r'$x$')
+    ax.set_xlabel(r'$u(x)$')
+    ax.set_title('Latent Time Evolution')
+    line, = ax.plot([], [], 'k--')
+    line_true, = ax.plot([], [], 'k')
+    fb = ax.fill_between([],[],[],lw=0, color='black', alpha = 0.15)
+    def init():
+        #for line in lines:
+        line.set_data([], [])
+        line_true.set_data([], [])
+        fb.set_verts([])
+        return line, line_true, fb,
+    def animate(i):
+        i = i 
+
+        x = nxv
+        y = out_test[i,:]
+        y_true = in_test[i,:]
+        yp = y+2*np.sqrt(out_var_test_test[i,:])
+        ym = y-2*np.sqrt(out_var_test_test[i,:])
+        data = np.concatenate((x,np.flip(x)))
+        datay = np.concatenate((yp,np.flip(ym)))
+        data = np.vstack((data,datay))
+        fb.set_verts([np.transpose(data)])
+        #for num, line in enumerate(lines):
+        line.set_data(x,y)
+        line_true.set_data(x,y_true)
+        return line, line_true, fb,
+    if save_gifs:
+        anim = FuncAnimation(fig, animate, init_func = init, frames = ntest, interval=10,blit=True)
+        anim.save(os.path.join(load_path, 'data_snapshots_{}.gif'.format(trial)), 
+                writer='imagemagick')
+
+    # plot the initial and final training time snapshot distribution in latent space
     plt.figure(337, figsize = (10,4))
     plt.xlabel(r'$i$')
     plt.ylabel(r'$z_i$')
     plt.title('z(0)')
     plt.subplot(1,2,1)
-    plt.plot(ztest[s*ntrain,:], 'k', label=r'$z_0$')
-    plt.plot(ztest[s*ntrain,:] + 2*zstd[s*ntrain,:], 'k--')
-    plt.plot(ztest[s*ntrain,:] - 2*zstd[s*ntrain,:], 'k--')
+    plt.plot(zmu[s*ntrain,:], 'k', label=r'$z_0$')
+    plt.plot(zmu[s*ntrain,:] + 2*zstd[s*ntrain,:], 'k--')
+    plt.plot(zmu[s*ntrain,:] - 2*zstd[s*ntrain,:], 'k--')
     plt.xlabel(r'$i$')
     plt.ylabel(r'$z_i$')
     plt.title('z(0)')
     plt.subplot(1,2,2)
-    plt.plot(ztest[(s+1)*ntrain-1,:], 'r', label=r'$z_T$')
-    plt.plot(ztest[(s+1)*ntrain-1,:] + 2*zstd[(s+1)*ntrain-1,:], 'r--')
-    plt.plot(ztest[(s+1)*ntrain-1,:] - 2*zstd[(s+1)*ntrain-1,:], 'r--')
+    plt.plot(zmu[(s+1)*ntrain-1,:], 'r', label=r'$z_T$')
+    plt.plot(zmu[(s+1)*ntrain-1,:] + 2*zstd[(s+1)*ntrain-1,:], 'r--')
+    plt.plot(zmu[(s+1)*ntrain-1,:] - 2*zstd[(s+1)*ntrain-1,:], 'r--')
     #plt.legend()
     plt.xlabel(r'$i$')
     plt.ylabel(r'$z_i$')
@@ -386,7 +414,7 @@ for trial in trials:
     plt.figure(333, figsize=(20, 5))
     for i in range(n_latent):
         plt.subplot(1,n_latent,i+1)
-        plt.plot(t[s,0:ntrain],ztest[s*ntrain:(s+1)*ntrain,i],'k')
+        plt.plot(t[s,0:ntrain],zmu[s*ntrain:(s+1)*ntrain,i],'k')
         plt.xlabel('t')
         plt.ylabel(r'$z_{}$'.format(i+1))
         plt.title('Latent Dim Over Time')

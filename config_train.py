@@ -32,7 +32,7 @@ def lr_schedule_1(epoch):
 
 # dataset and save paths ----------------------------------------------------------------------------------------------
 n_latent = 8              # latent dimension
-n_ic = 10                 # number of initial conditions (for dataset)
+n_ic = 1                 # number of initial conditions (for dataset)
 nt = 400                 # number of time snapshots to train on
 
 train_data_dir_u = 'data/Burgers1D/burgers1d_ic_{}.hdf5'.format(n_ic)   # training data directory
