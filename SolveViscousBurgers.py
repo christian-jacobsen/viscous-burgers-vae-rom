@@ -63,7 +63,7 @@ Usave = np.zeros((n_ic, 1, nsteps, nx))
 Tsave = np.zeros((n_ic, nsteps)) 
 phisave = np.zeros((n_ic,))
 for i in range(n_ic):
-    phi = np.random.rand(1)*2 + 0.5
+    phi = 1 #np.random.rand(1)*2 + 0.5
     u0 = IC(x0, phi)
     U, T= RK4(u0, dx, dt, F, nsteps)
     Usave[i,0,:,:] = np.transpose(U)
