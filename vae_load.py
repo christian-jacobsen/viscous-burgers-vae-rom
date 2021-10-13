@@ -41,14 +41,14 @@ n_ic = 1   # number of initial conditions in dataset (for outer loop batches)
 ntest = 600    # number of time snapshots to test (the first ntrain were used in training)
 
 
-trials = np.arange(20, 21)
+trials = np.arange(23, 24)
 
 for trial in trials:
     load_path = './Burgers1D/ic_{}/n{}/VAE_{}'.format(n_ic,n_latent,trial)
     model_name = 'VAE_{}.pth'.format(trial)
 
     save_figs = True
-    save_gifs = False
+    save_gifs = True
 
     train_data_dir = 'data/Burgers1D/burgers1d_ic_{}.hdf5'.format(n_ic)#
     test_data_dir = 'data/Burgers1D/burgers1d_ic_{}.hdf5'.format(n_ic)#
@@ -110,12 +110,9 @@ for trial in trials:
     out_var_test_test = np.exp(out_logvar_test_test)
     out_var_test_test = np.tile(out_var_test_test,(ntest,1))
 
-<<<<<<< HEAD
     
-=======
     train_test_error = np.mean((out_test-out_test_test[0:ntrain,0,:])**2)
     print('Average error between same data: ', train_test_error)
->>>>>>> main
 
     # plot reconstruction of spatio-temporal fields
     s = np.random.randint(0,n_ic) # random sample to show recon on <<--------- random sample -----------

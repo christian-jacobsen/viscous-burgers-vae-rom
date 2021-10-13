@@ -96,7 +96,7 @@ def vae_train(train_data_dir_u, test_data_dir, save_dir, filename, \
                 loss.backward()
                 total_norm = 0
                 for p in  VAE.parameters():
-                    total_norm = p.grad.detach().data.norm(2).item() **2 + total_norm
+                    total_norm = 0#p.grad.detach().data.norm(2).item() **2 + total_norm
                 total_norm = total_norm ** 0.5
 
                 if total_norm <= 1e8: 

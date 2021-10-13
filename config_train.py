@@ -36,7 +36,7 @@ def lr_schedule_1(epoch):
 # dataset and save paths ----------------------------------------------------------------------------------------------
 n_latent = 8              # latent dimension
 n_ic = 1                 # number of initial conditions (for dataset)
-nt = 10                 # number of time snapshots to train on
+nt = 400                 # number of time snapshots to train on
 arch = 'dilated-denseblock'  # architecture specifying 'encoder-decoder' type (not working)
 
 train_data_dir_u = 'data/Burgers1D/burgers1d_ic_{}.hdf5'.format(n_ic)   # training data directory
@@ -89,7 +89,7 @@ if HP:                      # specify the learning rate schedule
 else:
     lr_schedule = lr_schedule_0
     epochs = 3000 # 6500
-    rec_epochs = 3000# 4000
+    rec_epochs = 100# 4000
 
 
 

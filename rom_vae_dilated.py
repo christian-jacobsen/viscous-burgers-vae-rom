@@ -11,13 +11,13 @@ import numpy as np
 
 class _PadCyclic_1d(nn.Module):
     # pads the input with the right-most value on the left and the left-most value on the right
-    def __init__(self):
+    def __init__(self, pad):
         super(_PadCyclic_1d, self).__init__()
-        self.pad = 1
+        self.pad = pad
 
     def forward(self, x):
-        shape = (np.shape(x)[0], np.shape(x)[1], 1)
-        return torch.cat([x[:, :, -1].view(shape), x, x[:, :, 0].view(shape)], -1)
+        shape = (np.shape(x)[0], np.shape(x)[1], self.pad)
+        return torch.cat([x[:, :, -self.pad:].view(shape), x, x[:, :, :self.pad].view(shape)], -1)
 
 
 class _Reshape_1d(nn.Module):
@@ -32,9 +32,10 @@ class _Reshape_1d(nn.Module):
 class _DenseBlockLayer_1d(nn.Sequential):
     def __init__(self, in_features, growth_rate, act=nn.ReLU(inplace=True)):
         super(_DenseBlockLayer_1d, self).__init__()
-        self.add_module('norm', nn.BatchNorm1d(in_features))
+
+        self.add_module('cyclic_pad', _PadCyclic_1d(1))
+        #self.add_module('norm', nn.BatchNorm1d(in_features))
         self.add_module('act', act)
-        self.add_module('cyclic_pad', _PadCyclic_1d())
         self.add_module('conv', nn.Conv1d(in_features, growth_rate,
             kernel_size=3, stride=1, padding=0, bias=False))
 
@@ -55,12 +56,12 @@ class _EncodeBlock_1d(nn.Sequential):
     def __init__(self, in_features, out_features, act=nn.ReLU(inplace=True)):
         super(_EncodeBlock_1d, self).__init__()
 
-        self.add_module('norm1', nn.BatchNorm1d(in_features))
+        self.add_module('cyclic_pad1', _PadCyclic_1d(1))
+        #self.add_module('norm1', nn.BatchNorm1d(in_features))
         self.add_module('act1', act)
-        self.add_module('cyclic_pad1', _PadCyclic_1d())
         self.add_module('conv1', nn.Conv1d(in_features, out_features,
             kernel_size=3, stride=1, padding=0, bias=False))
-        self.add_module('norm2', nn.BatchNorm1d(out_features))
+        #self.add_module('norm2', nn.BatchNorm1d(out_features))
         self.add_module('act2', act)
         self.add_module('pool', nn.MaxPool1d(2, stride=2))
 
@@ -69,12 +70,12 @@ class _DecodeBlock_1d(nn.Sequential):
     def __init__(self, in_features, out_features, act=nn.ReLU(inplace=True)):
         super(_DecodeBlock_1d, self).__init__()
 
-        self.add_module('norm1', nn.BatchNorm1d(in_features))
+        self.add_module('cyclic_pad1', _PadCyclic_1d(1))
+        #self.add_module('norm1', nn.BatchNorm1d(in_features))
         self.add_module('act1', act)
-        self.add_module('cyclic_pad1', _PadCyclic_1d())
         self.add_module('conv1', nn.Conv1d(in_features, out_features,
             kernel_size=3, stride=1, padding=0, bias=False))
-        self.add_module('norm2', nn.BatchNorm1d(out_features))
+        #self.add_module('norm2', nn.BatchNorm1d(out_features))
         self.add_module('act2', act)
         self.add_module('upsample', nn.Upsample(
             scale_factor=2, mode='linear', align_corners=False))
@@ -84,12 +85,12 @@ class _FinalDecode_1d(nn.Sequential):
     def __init__(self, in_features, out_channels, act=nn.ReLU(inplace=True)):
         super(_FinalDecode_1d, self).__init__()
 
-        self.add_module('norm1', nn.BatchNorm1d(in_features))
+        self.add_module('cyclic_pad1', _PadCyclic_1d(1))
+        #self.add_module('norm1', nn.BatchNorm1d(in_features))
         self.add_module('act1', act)
-        self.add_module('cyclic_pad1', _PadCyclic_1d())
         self.add_module('conv1', nn.Conv1d(in_features, in_features//2,
             kernel_size=3, stride=1, padding=0, bias=False))
-        self.add_module('norm2', nn.BatchNorm1d(in_features//2))
+        #self.add_module('norm2', nn.BatchNorm1d(in_features//2))
         self.add_module('act2', act)
         self.add_module('upsample', nn.Upsample(
             scale_factor=2, mode='linear', align_corners=False))
@@ -98,8 +99,8 @@ class _DilationBlock_1d(nn.Sequential):
     def __init__(self, in_chan, out_chan, dil, act=nn.ReLU(inplace=True)):
         super(_DilationBlock_1d, self).__init__()
 
-        self.add_module('cyclic_pad', _PadCyclic_1d())
-        self.add_module('norm', nn.BatchNorm1d(in_chan))
+        self.add_module('cyclic_pad', _PadCyclic_1d(dil))
+        #self.add_module('norm', nn.BatchNorm1d(in_chan))
         self.add_module('dil_conv', nn.Conv1d(in_chan, out_chan, kernel_size=3, dilation=dil))
         self.add_module('act', act)
 
@@ -112,6 +113,7 @@ class rom_vae_dilated(nn.Module):
         data_channels = 1
         initial_features = 2
         K = 4  # growth rate
+        self.n_latent = n_latent
 
         self.E1_m = nn.Sequential()
         self.E1_lv = nn.Sequential()
@@ -163,6 +165,12 @@ class rom_vae_dilated(nn.Module):
 
     def forward(self, x):
         zmu, zlogvar=self.E1_m(x), self.E1_lv(x)
+        # do inverse variance weighted averaging
+        C = 31 # correlation length.. estimated as maximum receptive field size (dilation 8)
+        weights = F.softmax(-zlogvar, dim=-1)
+        zmu = (zmu * weights).sum(dim=-1).view(-1, self.n_latent)
+        zlogvar = C / torch.sum(torch.exp(-zlogvar), dim=-1)
+        zlogvar = torch.log(zlogvar.view(-1, self.n_latent))
         z=self._reparameterize(zmu, zlogvar)
         xmu, xlogvar=self.D1_m(z), self.D1_lv
         return zmu, zlogvar, z, xmu, xlogvar

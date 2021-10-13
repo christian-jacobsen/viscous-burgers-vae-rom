@@ -19,7 +19,7 @@ if __name__ == '__main__':
     save_dir0 = save_dir    
     if not os.path.exists(save_dir):
         os.makedirs(save_dir) 
-    n_trials = 5
+    n_trials = 1
     for i in range(n_trials): 
         file_exists = True
         trial_num = 0
