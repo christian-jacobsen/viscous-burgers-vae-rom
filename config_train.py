@@ -74,7 +74,7 @@ wd = 1e-7                     # weight decay (Adam optimizer)
 batch_size_u = 1             # batch size (training)
 batch_size_l = 512
 test_batch_size = 1       # not used during training, but saved for post-processing
-beta0 = 0.000000001         # \beta during reconstruction-only phase
+beta0 = 0# 0.000000001         # \beta during reconstruction-only phase
 
 nu = 0.005
 tau = 1                     # these are parameters for the beta scheduler, more details in paper

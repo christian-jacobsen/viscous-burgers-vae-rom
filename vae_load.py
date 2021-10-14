@@ -41,7 +41,7 @@ n_ic = 1   # number of initial conditions in dataset (for outer loop batches)
 ntest = 128    # number of time snapshots to test (the first ntrain were used in training)
 
 
-trials = np.arange(2, 3)
+trials = np.arange(1, 2)
 
 for trial in trials:
     load_path = './LinAdv1D/ic_{}/n{}/VAE_{}'.format(n_ic,n_latent,trial)
