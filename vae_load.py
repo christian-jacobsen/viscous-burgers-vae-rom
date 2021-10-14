@@ -36,27 +36,27 @@ def vae_load(path):
     #beta_list = 0
     return VAE, loss_reg, loss_rec, beta_list, config
 
-n_latent = 8 # latent space dimension
+n_latent = 32 # latent space dimension
 n_ic = 1   # number of initial conditions in dataset (for outer loop batches)
-ntest = 600    # number of time snapshots to test (the first ntrain were used in training)
+ntest = 128    # number of time snapshots to test (the first ntrain were used in training)
 
 
-trials = np.arange(23, 24)
+trials = np.arange(1, 2)
 
 for trial in trials:
-    load_path = './Burgers1D/ic_{}/n{}/VAE_{}'.format(n_ic,n_latent,trial)
+    load_path = './LinAdv1D/ic_{}/n{}/VAE_{}'.format(n_ic,n_latent,trial)
     model_name = 'VAE_{}.pth'.format(trial)
 
     save_figs = True
     save_gifs = True
 
-    train_data_dir = 'data/Burgers1D/burgers1d_ic_{}.hdf5'.format(n_ic)#
-    test_data_dir = 'data/Burgers1D/burgers1d_ic_{}.hdf5'.format(n_ic)#
 
     VAE, loss_reg, loss_rec, beta, config = vae_load(os.path.join(load_path, model_name))
     ntrain = config['nt'] # number of time snapshots trained on
     nstest = ntest - ntrain # the total number of unseen time snapshots
 
+    train_data_dir = config['train_data_dir_u']#'data/Burgers1D/burgers1d_ic_{}.hdf5'.format(n_ic)#
+    test_data_dir = config['test_data_dir']#'data/Burgers1D/burgers1d_ic_{}.hdf5'.format(n_ic)#
     train_loader, train_stats = load_data_new(train_data_dir, n_ic, ntrain, shuff=False)
     test_loader, test_stats = load_data_new(test_data_dir, n_ic, ntest, shuff=False)
 
@@ -120,7 +120,7 @@ for trial in trials:
     in_test = in_test[s*ntrain:(s+1)*ntrain,0,:]
     out_test = out_test[s*ntrain:(s+1)*ntrain,0,:]
 
-    plt.figure(4, figsize = (24, 20))
+    plt.figure(4, figsize = (20*ntrain/1200+4, 20))
     plt.subplot(4,1,1)
     plt.imshow(np.transpose(in_test), cmap = 'jet')
     plt.title('Data Sample', fontsize = 16)
@@ -188,7 +188,7 @@ for trial in trials:
     in_test = in_test_test[s*ntest:(s+1)*ntest,0,:]
     out_test = out_test_test[s*ntest:(s+1)*ntest,0,:]
 
-    plt.figure(485, figsize = (24, 20))
+    plt.figure(485, figsize = (20*ntest/1200+4, 20))
     plt.subplot(4,1,1)
     plt.imshow(np.transpose(in_test), cmap = 'jet')
     plt.plot([ntrain,ntrain],[0,nx], 'k--', lw=3)

@@ -20,9 +20,9 @@ class _PadCyclic_1d(nn.Module):
         return torch.cat([x[:, :, -self.pad:].view(shape), x, x[:, :, :self.pad].view(shape)], -1)
 
 
-class _Reshape_1d(nn.Module):
+class _Reshape(nn.Module):
     def __init__(self, shape):
-        super(_Reshape_1d, self).__init__()
+        super(_Reshape, self).__init__()
         self.shape = shape
 
     def forward(self, x):
@@ -122,35 +122,54 @@ class rom_vae_dilated(nn.Module):
         self.D1_lv = nn.Parameter(torch.zeros((1, 128)))
 
         # Encoder1 Mean
-        dilations = [1, 2, 4, 8]
-        in_channels = [data_channels, 4, 16, 64]
+        dilations = [1, 1, 1]
+        in_channels = [data_channels, 32, 64, 1]
         for (n, dil) in enumerate(dilations):
+            dil_block = _DilationBlock_1d(in_channels[n], in_channels[n+1], dil, act=act)
+            self.E1_m.add_module('dilationblock{}'.format(n+1), dil_block)  
             if n < (len(dilations)-1):
-                dil_block = _DilationBlock_1d(in_channels[n], in_channels[n+1], dil, act=act)
-            else:
-                dil_block = _DilationBlock_1d(in_channels[n], in_channels[n], dil, act=act)
-            self.E1_m.add_module('dilationblock{}'.format(n+1),dil_block)  
+                enc = _EncodeBlock_1d(in_features=in_channels[n+1],out_features=in_channels[n+1],act=act)
+                self.E1_m.add_module('encblock{}'.format(n+1), enc)
 
-        self.E1_m.add_module('finalconv', nn.Conv1d(in_channels[-1], n_latent, kernel_size=1, stride=1)) 
+        self.E1_m.add_module('flatten', nn.Flatten())
+        #self.E1_lv.add_module('finalconv', nn.Conv1d(in_channels[-1], n_latent, kernel_size=1, stride=1))
 
         # Encoder1 Logvar
-        dilations = [1, 2, 4, 8]
-        in_channels = [data_channels, 4, 16, 64]
+        dilations = [1, 1, 1]
+        in_channels = [data_channels, 32, 64, 1]
         for (n, dil) in enumerate(dilations):
-            if n < (len(dilations)-1):
-                dil_block = _DilationBlock_1d(in_channels[n], in_channels[n+1], dil, act=act)
-            else:
-                dil_block = _DilationBlock_1d(in_channels[n], in_channels[n], dil, act=act)
+            dil_block = _DilationBlock_1d(in_channels[n], in_channels[n+1], dil, act=act)
             self.E1_lv.add_module('dilationblock{}'.format(n+1), dil_block)  
+            if n < (len(dilations)-1):
+                enc = _EncodeBlock_1d(in_features=in_channels[n+1],out_features=in_channels[n+1],act=act)
+                self.E1_lv.add_module('encblock{}'.format(n+1), enc)
+        
+        self.E1_lv.add_module('flatten', nn.Flatten())
+        #self.E1_lv.add_module('finalconv', nn.Conv1d(in_channels[-1], n_latent, kernel_size=1, stride=1))
 
-        self.E1_lv.add_module('finalconv', nn.Conv1d(in_channels[-1], n_latent, kernel_size=1, stride=1)) 
         # Decoder1 Mean
-        self.D1_m.add_module('reshape', _Reshape_1d((-1, n_latent, 1)))
-        self.D1_m.add_module('upsample', nn.Upsample(scale_factor=8))
-        self.D1_m.add_module('initial_conv', nn.Conv1d(n_latent, n_latent, kernel_size = 3, stride=1, padding=1, bias=False))
+        self.D1_m.add_module('reshape', _Reshape((-1, 1, 32))) 
+
+        dilations = [1, 1, 1]
+        in_channels = [1, 64, 32, data_channels]
+        for (n, dil) in enumerate(dilations):
+            dil_block = _DilationBlock_1d(in_channels[n], in_channels[n+1], dil, act=act)
+            self.D1_m.add_module('dilationblock{}'.format(n+1), dil_block)  
+            if n < (len(dilations)-1):
+                dec = _DecodeBlock_1d(in_features=in_channels[n+1],out_features=in_channels[n+1],act=act)
+                self.D1_m.add_module('encblock{}'.format(n+1), dec)
+        
+        #self.E1_lv.add_module('flatten', nn.Flatten())
+        
+        '''
+        self.D1_m.add_module('fullconn', nn.Linear(n_latent, 2*n_latent))
+        self.D1_m.add_module('fullconn2', nn.Linear(2*n_latent, 4*16))
+        self.D1_m.add_module('reshape', _Reshape((-1, 4, 16)))
+        #self.D1_m.add_module('upsample', nn.Upsample(scale_factor=16))
+        self.D1_m.add_module('initial_conv', nn.Conv1d(4, n_latent, kernel_size = 3, stride=1, padding=1, bias=False))
 
         n_features=n_latent
-        n_layers=[6, 4, 4, 4]
+        n_layers=[6, 4, 4]
         for (n, l) in enumerate(n_layers):
             block=_DenseBlock_1d(n_layers=l, in_features=n_features,growth_rate=K, act=act)
             self.D1_m.add_module('dense_block{}'.format(n+1), block)
@@ -162,16 +181,17 @@ class rom_vae_dilated(nn.Module):
 
         dec=_DecodeBlock_1d(in_features=n_features, out_features=data_channels, act=act)
         self.D1_m.add_module('decode_block_final', dec)
+        '''
 
     def forward(self, x):
         zmu, zlogvar=self.E1_m(x), self.E1_lv(x)
         # do inverse variance weighted averaging
-        C = 31 # correlation length.. estimated as maximum receptive field size (dilation 8)
-        weights = F.softmax(-zlogvar, dim=-1)
-        zmu = (zmu * weights).sum(dim=-1).view(-1, self.n_latent)
-        zlogvar = C / torch.sum(torch.exp(-zlogvar), dim=-1)
-        zlogvar = torch.log(zlogvar.view(-1, self.n_latent))
-        z=self._reparameterize(zmu, zlogvar)
+        #C = 7 # correlation length.. estimated as maximum receptive field size (dilation 8)
+        #weights = F.softmax(-zlogvar, dim=-1)
+        #zmu = (zmu * weights).sum(dim=-1).view(-1, self.n_latent)
+        #zlogvar = C / torch.sum(torch.exp(-zlogvar), dim=-1)
+        #zlogvar = torch.log(zlogvar.view(-1, self.n_latent))
+        z=zmu#self._reparameterize(zmu, zlogvar)
         xmu, xlogvar=self.D1_m(z), self.D1_lv
         return zmu, zlogvar, z, xmu, xlogvar
 
@@ -181,10 +201,10 @@ class rom_vae_dilated(nn.Module):
         return mu + std * eps
 
     def gaussian_log_prob(self, x, mu, logvar):
-        return -0.5*(math.log(2*math.pi) + logvar + (x-mu)**2/torch.exp(logvar))
+        return -0.5*((x-mu)**2)#/torch.exp(logvar) + math.log(2*math.pi) + logvar + )
 
     def compute_kld(self, zmu, zlogvar):
-        return 0.5*(zmu**2 + torch.exp(zlogvar) - 1 - zlogvar)
+        return torch.Tensor([0])#0.5*(zmu**2 + torch.exp(zlogvar) - 1 - zlogvar)
         #return 0.5*(zmu**2/torch.exp(self.prior_logvar) + torch.exp(zlogvar)/torch.exp(self.prior_logvar) - 1 - zlogvar + self.prior_logvar)#0.5*(2*math.log(0.25)- 0.5*torch.sum(zlogvar, 1) - 2 + 1/0.25*torch.sum(zlogvar.mul(0.5).exp_(), 1) + torch.sum((0.5-zmu)**2, 1))#
 
     def compute_kld_ss(self, zmu, zlogvar, zl):
