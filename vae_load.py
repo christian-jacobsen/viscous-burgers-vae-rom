@@ -41,7 +41,7 @@ n_ic = 1   # number of initial conditions in dataset (for outer loop batches)
 ntest = 128    # number of time snapshots to test (the first ntrain were used in training)
 
 
-trials = np.arange(1, 2)
+trials = np.arange(3,4)
 
 for trial in trials:
     load_path = './LinAdv1D/ic_{}/n{}/VAE_{}'.format(n_ic,n_latent,trial)
@@ -101,14 +101,14 @@ for trial in trials:
     out_test = out_test.detach().numpy()
     out_test_logvar = out_test_logvar.detach().numpy()
     out_test_var = np.exp(out_test_logvar)
-    out_test_var = np.tile(out_test_var,(ntrain,1))
+    #out_test_var = np.tile(out_test_var,(ntrain,1))
 
     #detach testing data and predictions
     in_test_test = in_test_test.detach().numpy()
     out_test_test = out_test_test.detach().numpy()
     out_logvar_test_test = out_logvar_test_test.detach().numpy()
     out_var_test_test = np.exp(out_logvar_test_test)
-    out_var_test_test = np.tile(out_var_test_test,(ntest,1))
+    #out_var_test_test = np.tile(out_var_test_test,(ntest,1))
 
     
     train_test_error = np.mean((out_test-out_test_test[0:ntrain,0,:])**2)
@@ -119,6 +119,7 @@ for trial in trials:
     
     in_test = in_test[s*ntrain:(s+1)*ntrain,0,:]
     out_test = out_test[s*ntrain:(s+1)*ntrain,0,:]
+    out_test_var = np.sqrt(out_test_var[s*ntrain:(s+1)*ntrain,0,:])
 
     plt.figure(4, figsize = (20*ntrain/1200+4, 20))
     plt.subplot(4,1,1)
@@ -142,7 +143,7 @@ for trial in trials:
     plt.subplot(4,1,4)
     #print(np.shape(out_test_var))
     plt.imshow(np.transpose(out_test_var), cmap='jet')
-    plt.title('Reconstructed Variance', fontsize=16)
+    plt.title('Reconstructed Standard Deviation', fontsize=16)
     plt.xlabel('t')
     plt.ylabel('x')
     plt.colorbar()
@@ -187,6 +188,7 @@ for trial in trials:
     #plot spatio-temporal field including prediction
     in_test = in_test_test[s*ntest:(s+1)*ntest,0,:]
     out_test = out_test_test[s*ntest:(s+1)*ntest,0,:]
+    out_var_test = np.sqrt(out_var_test_test[s*ntest:(s+1)*ntest,0,:])
 
     plt.figure(485, figsize = (20*ntest/1200+4, 20))
     plt.subplot(4,1,1)
@@ -212,10 +214,10 @@ for trial in trials:
     plt.colorbar()
     plt.subplot(4,1,4)
     #print(np.shape(out_test_var))
-    plt.imshow(np.transpose(out_var_test_test), cmap='jet')
+    plt.imshow(np.transpose(out_var_test), cmap='jet')
     plt.plot([ntrain,ntrain],[0,nx], 'k--', lw=3, label='Final Training Time')
     plt.legend()
-    plt.title('Variance', fontsize=16)
+    plt.title('Standard Deviation', fontsize=16)
     plt.xlabel('t')
     plt.ylabel('x')
     plt.colorbar()
@@ -227,6 +229,8 @@ for trial in trials:
     #           but ntest-ntrain were not
     in_test = in_test_test[s*ntest+ntrain:(s+1)*ntest,0,:]
     out_test = out_test_test[s*ntest+ntrain:(s+1)*ntest,0,:]
+    out_var_test = np.sqrt(out_var_test_test[s*ntest+ntrain:(s+1)*ntest,0,:])
+    out_var_test_test = np.sqrt(out_var_test_test[s*ntest:(s+1)*ntest,0,:])
 
     nx = np.shape(in_test)[-1]
     nxv = np.linspace(0,1,nx)
@@ -234,8 +238,8 @@ for trial in trials:
     plt.subplot(1,3,1)
     plt.plot(nxv, in_test[0,:], 'k', label=r'$u_{T+1}$')
     plt.plot(nxv, out_test[0,:], 'k--', label='Prediction Mean')
-    plt.fill_between(nxv, out_test[0,:]+2*out_var_test_test[0,:],
-            out_test[0,:]-2*out_var_test_test[0,:], color='black', alpha = 0.2, label = r'$\pm 2\sigma$')
+    plt.fill_between(nxv, out_test[0,:]+2*out_var_test[0,:],
+            out_test[0,:]-2*out_var_test[0,:], color='black', alpha = 0.2, label = r'$\pm 2\sigma$')
     plt.legend()
     plt.title('Single Time Snapshot Prediction')
     plt.xlabel('x')
@@ -243,8 +247,8 @@ for trial in trials:
     plt.subplot(1,3,2)
     plt.plot(nxv, in_test[nstest//2,:], 'b', label=r'$u_{T+100}$')
     plt.plot(nxv, out_test[nstest//2,:], 'b--', label='Prediction Mean')
-    plt.fill_between(nxv, out_test[nstest//2,:]+2*out_var_test_test[nstest//2,:],
-            out_test[nstest//2,:]-2*out_var_test_test[nstest//2,:], color='blue', alpha = 0.2, label = r'$\pm 2\sigma$')
+    plt.fill_between(nxv, out_test[nstest//2,:]+2*out_var_test[nstest//2,:],
+            out_test[nstest//2,:]-2*out_var_test[nstest//2,:], color='blue', alpha = 0.2, label = r'$\pm 2\sigma$')
     plt.legend()
     plt.title('Single Time Snapshot Prediction')
     plt.xlabel('x')
@@ -252,8 +256,8 @@ for trial in trials:
     plt.subplot(1,3,3)
     plt.plot(nxv, in_test[-1,:], 'r', label=r'$u_{T+200}$')
     plt.plot(nxv, out_test[-1,:], 'r--', label='Prediction Mean')
-    plt.fill_between(nxv, out_test[-1,:]+2*out_var_test_test[-1,:],
-            out_test[-1,:]-2*out_var_test_test[-1,:], color='red', alpha = 0.2, label = r'$\pm 2\sigma$')
+    plt.fill_between(nxv, out_test[-1,:]+2*out_var_test[-1,:],
+            out_test[-1,:]-2*out_var_test[-1,:], color='red', alpha = 0.2, label = r'$\pm 2\sigma$')
     plt.legend()
     plt.title('Single Time Snapshot Prediction')
     plt.xlabel('x')

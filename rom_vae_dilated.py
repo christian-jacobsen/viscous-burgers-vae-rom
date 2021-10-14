@@ -119,7 +119,7 @@ class rom_vae_dilated(nn.Module):
         self.E1_lv = nn.Sequential()
 
         self.D1_m = nn.Sequential()
-        self.D1_lv = nn.Parameter(torch.zeros((1, 128)))
+        self.D1_lv = nn.Sequential() #nn.Parameter(torch.zeros((1, 128)))
 
         # Encoder1 Mean
         dilations = [1, 1, 1]
@@ -159,7 +159,17 @@ class rom_vae_dilated(nn.Module):
                 dec = _DecodeBlock_1d(in_features=in_channels[n+1],out_features=in_channels[n+1],act=act)
                 self.D1_m.add_module('encblock{}'.format(n+1), dec)
         
-        #self.E1_lv.add_module('flatten', nn.Flatten())
+        # Decoder1 Logvar
+        self.D1_lv.add_module('reshape', _Reshape((-1, 1, 32))) 
+
+        dilations = [1, 1, 1]
+        in_channels = [1, 64, 32, data_channels]
+        for (n, dil) in enumerate(dilations):
+            dil_block = _DilationBlock_1d(in_channels[n], in_channels[n+1], dil, act=act)
+            self.D1_lv.add_module('dilationblock{}'.format(n+1), dil_block)  
+            if n < (len(dilations)-1):
+                dec = _DecodeBlock_1d(in_features=in_channels[n+1],out_features=in_channels[n+1],act=act)
+                self.D1_lv.add_module('encblock{}'.format(n+1), dec)
         
         '''
         self.D1_m.add_module('fullconn', nn.Linear(n_latent, 2*n_latent))
@@ -192,7 +202,7 @@ class rom_vae_dilated(nn.Module):
         #zlogvar = C / torch.sum(torch.exp(-zlogvar), dim=-1)
         #zlogvar = torch.log(zlogvar.view(-1, self.n_latent))
         z=self._reparameterize(zmu, zlogvar)
-        xmu, xlogvar=self.D1_m(z), self.D1_lv
+        xmu, xlogvar=self.D1_m(z), self.D1_lv(z)
         return zmu, zlogvar, z, xmu, xlogvar
 
     def _reparameterize(self, mu, logvar):
@@ -204,7 +214,7 @@ class rom_vae_dilated(nn.Module):
         return -0.5*((x-mu)**2/torch.exp(logvar) + math.log(2*math.pi) + logvar)
 
     def compute_kld(self, zmu, zlogvar):
-        return 0.5*(zmu**2 + torch.exp(zlogvar) - 1 - zlogvar)
+        return torch.Tensor([0])#0.5*(zmu**2 + torch.exp(zlogvar) - 1 - zlogvar)
         #return 0.5*(zmu**2/torch.exp(self.prior_logvar) + torch.exp(zlogvar)/torch.exp(self.prior_logvar) - 1 - zlogvar + self.prior_logvar)#0.5*(2*math.log(0.25)- 0.5*torch.sum(zlogvar, 1) - 2 + 1/0.25*torch.sum(zlogvar.mul(0.5).exp_(), 1) + torch.sum((0.5-zmu)**2, 1))#
 
     def compute_kld_ss(self, zmu, zlogvar, zl):

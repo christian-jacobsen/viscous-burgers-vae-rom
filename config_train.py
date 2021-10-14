@@ -15,11 +15,11 @@ def lr_schedule_0(epoch):
     e0 = 2500
     e1 = 7500
     if epoch < e0:
-        return 0.002
-    elif epoch < e1:
-        return 0.001
-    else:
         return 0.0005
+    elif epoch < e1:
+        return 0.0001
+    else:
+        return 0.00005
     
 def lr_schedule_1(epoch):
     # used for VAE w/ HP network (more sensitive to learning rate)
@@ -74,7 +74,7 @@ wd = 1e-7                     # weight decay (Adam optimizer)
 batch_size_u = 1             # batch size (training)
 batch_size_l = 512
 test_batch_size = 1       # not used during training, but saved for post-processing
-beta0 = 0# 0.000000001         # \beta during reconstruction-only phase
+beta0 = 0.000000001         # \beta during reconstruction-only phase
 
 nu = 0.005
 tau = 1                     # these are parameters for the beta scheduler, more details in paper
@@ -88,8 +88,8 @@ if HP:                      # specify the learning rate schedule
         
 else:
     lr_schedule = lr_schedule_0
-    epochs = 20000 # 6500
-    rec_epochs = 20000# 4000
+    epochs = 6000 # 6500
+    rec_epochs = 3000# 4000
 
 
 
