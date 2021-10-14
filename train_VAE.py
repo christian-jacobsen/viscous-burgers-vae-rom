@@ -26,8 +26,8 @@ if __name__ == '__main__':
         while file_exists:
             if trial_num > 100:
                 break
-            save_dir_temp = save_dir + '/VAE_' + str(trial_num)
-            filename = 'VAE_' + str(trial_num) + '.pth'
+            save_dir_temp = save_dir + '/AE_' + str(trial_num)
+            filename = 'AE_' + str(trial_num) + '.pth'
             path_exists = os.path.exists(save_dir_temp)
             if path_exists:
                 file_exists = os.path.exists(save_dir_temp + '/' + filename)

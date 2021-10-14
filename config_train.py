@@ -39,11 +39,11 @@ n_ic = 1                 # number of initial conditions (for dataset)
 nt = 1                 # number of time snapshots to train on
 #arch = 'dilated-denseblock'  # architecture specifying 'encoder-decoder' type (not working)
 
-train_data_dir_u = 'data/LinAdv1D/linadv1d_ic_{}.hdf5'.format(n_ic)   # training data directory
+train_data_dir_u = 'data/Burgers1D/burgers1d_ic_{}.hdf5'.format(n_ic)   # training data directory
 train_data_dir_l = 'data/DarcyFlow/multimodal/kle2_mc512_bimodal_2.hdf5'     # testing data directory
-test_data_dir = 'data/LinAdv1D/linadv1d_ic_{}.hdf5'.format(n_ic)     # testing data directory
+test_data_dir = 'data/Burgers1D/burgers1d_ic_{}.hdf5'.format(n_ic)     # testing data directory
 
-save_dir = './LinAdv1D/ic_{}/n{}'.format(n_ic,n_latent) # specify a folder where all similar models belong. 
+save_dir = './Burgers1D/ic_{}/n{}'.format(n_ic,n_latent) # specify a folder where all similar models belong. 
                                      #    after training, model and configuration will be saved in a subdirectory as a .pth file
 continue_training = False           # specify if training is continued from a saved model
 tr = 2
@@ -88,8 +88,8 @@ if HP:                      # specify the learning rate schedule
         
 else:
     lr_schedule = lr_schedule_0
-    epochs = 6000 # 6500
-    rec_epochs = 3000# 4000
+    epochs = 500 # 6500
+    rec_epochs = 500# 4000
 
 
 

@@ -201,7 +201,7 @@ class rom_vae_dilated(nn.Module):
         #zmu = (zmu * weights).sum(dim=-1).view(-1, self.n_latent)
         #zlogvar = C / torch.sum(torch.exp(-zlogvar), dim=-1)
         #zlogvar = torch.log(zlogvar.view(-1, self.n_latent))
-        z=self._reparameterize(zmu, zlogvar)
+        z=zmu#self._reparameterize(zmu, zlogvar)
         xmu, xlogvar=self.D1_m(z), self.D1_lv(z)
         return zmu, zlogvar, z, xmu, xlogvar
 
@@ -211,7 +211,7 @@ class rom_vae_dilated(nn.Module):
         return mu + std * eps
 
     def gaussian_log_prob(self, x, mu, logvar):
-        return -0.5*((x-mu)**2/torch.exp(logvar) + math.log(2*math.pi) + logvar)
+        return -0.5*((x-mu)**2)#/torch.exp(logvar) + math.log(2*math.pi) + logvar)
 
     def compute_kld(self, zmu, zlogvar):
         return torch.Tensor([0])#0.5*(zmu**2 + torch.exp(zlogvar) - 1 - zlogvar)

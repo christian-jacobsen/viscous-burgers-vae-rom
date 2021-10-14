@@ -38,14 +38,14 @@ def vae_load(path):
 
 n_latent = 32 # latent space dimension
 n_ic = 1   # number of initial conditions in dataset (for outer loop batches)
-ntest = 128    # number of time snapshots to test (the first ntrain were used in training)
+ntest = 1200    # number of time snapshots to test (the first ntrain were used in training)
 
 
-trials = np.arange(3,4)
+trials = np.arange(0, 1)
 
 for trial in trials:
-    load_path = './LinAdv1D/ic_{}/n{}/VAE_{}'.format(n_ic,n_latent,trial)
-    model_name = 'VAE_{}.pth'.format(trial)
+    load_path = './Burgers1D/ic_{}/n{}/AE_{}'.format(n_ic,n_latent,trial)
+    model_name = 'AE_{}.pth'.format(trial)
 
     save_figs = True
     save_gifs = True
