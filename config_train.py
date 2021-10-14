@@ -88,8 +88,8 @@ if HP:                      # specify the learning rate schedule
         
 else:
     lr_schedule = lr_schedule_0
-    epochs = 2000 # 6500
-    rec_epochs = 2000# 4000
+    epochs = 20000 # 6500
+    rec_epochs = 20000# 4000
 
 
 
