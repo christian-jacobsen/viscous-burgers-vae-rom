@@ -32,7 +32,7 @@ def vae_train(train_data_dir_u, test_data_dir, save_dir, filename, \
                        data_channels, initial_features, dense_blocks, growth_rate, n_latent, \
                        prior, activations, cont, cont_path):
 
-    sub_batch_size = 1
+    sub_batch_size = nt//10
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(device)
