@@ -122,8 +122,8 @@ class rom_vae_dilated(nn.Module):
         self.D1_lv = nn.Sequential() #nn.Parameter(torch.zeros((1, 128)))
 
         # Encoder1 Mean
-        dilations = [1, 1, 1, 1, 1]
-        in_channels = [data_channels, 32, 64, 128, 256, 1]
+        dilations = [1, 1, 1]
+        in_channels = [data_channels, 32, 64, 1]
         for (n, dil) in enumerate(dilations):
             dil_block = _DilationBlock_1d(in_channels[n], in_channels[n+1], dil, act=act)
             self.E1_m.add_module('dilationblock{}'.format(n+1), dil_block)  
@@ -135,8 +135,8 @@ class rom_vae_dilated(nn.Module):
         #self.E1_lv.add_module('finalconv', nn.Conv1d(in_channels[-1], n_latent, kernel_size=1, stride=1))
 
         # Encoder1 Logvar
-        dilations = [1, 1, 1, 1, 1]
-        in_channels = [data_channels, 32, 64, 128, 256, 1]
+        #dilations = [1, 1, 1, 1, 1]
+        #in_channels = [data_channels, 32, 64, 128, 256, 1]
         for (n, dil) in enumerate(dilations):
             dil_block = _DilationBlock_1d(in_channels[n], in_channels[n+1], dil, act=act)
             self.E1_lv.add_module('dilationblock{}'.format(n+1), dil_block)  
@@ -148,10 +148,11 @@ class rom_vae_dilated(nn.Module):
         #self.E1_lv.add_module('finalconv', nn.Conv1d(in_channels[-1], n_latent, kernel_size=1, stride=1))
 
         # Decoder1 Mean
-        self.D1_m.add_module('reshape', _Reshape((-1, 1, 8))) 
+        in_channels = np.flip(in_channels)
+        self.D1_m.add_module('reshape', _Reshape((-1, 1, 32))) 
 
-        dilations = [1, 1, 1, 1, 1]
-        in_channels = [1, 256, 128, 64, 32, data_channels]
+        #dilations = [1, 1, 1, 1, 1]
+        #in_channels = [1, 256, 128, 64, 32, data_channels]
         for (n, dil) in enumerate(dilations):
             dil_block = _DilationBlock_1d(in_channels[n], in_channels[n+1], dil, act=act)
             self.D1_m.add_module('dilationblock{}'.format(n+1), dil_block)  
@@ -160,10 +161,10 @@ class rom_vae_dilated(nn.Module):
                 self.D1_m.add_module('encblock{}'.format(n+1), dec)
         
         # Decoder1 Logvar
-        self.D1_lv.add_module('reshape', _Reshape((-1, 1, 8)))
+        self.D1_lv.add_module('reshape', _Reshape((-1, 1, 32)))
 
-        dilations = [1, 1, 1, 1, 1]
-        in_channels = [1, 256, 128, 64, 32, data_channels]
+        #dilations = [1, 1, 1, 1, 1]
+        #in_channels = [1, 256, 128, 64, 32, data_channels]
         for (n, dil) in enumerate(dilations):
             dil_block = _DilationBlock_1d(in_channels[n], in_channels[n+1], dil, act=act)
             self.D1_lv.add_module('dilationblock{}'.format(n+1), dil_block)  
@@ -201,7 +202,7 @@ class rom_vae_dilated(nn.Module):
         #zmu = (zmu * weights).sum(dim=-1).view(-1, self.n_latent)
         #zlogvar = C / torch.sum(torch.exp(-zlogvar), dim=-1)
         #zlogvar = torch.log(zlogvar.view(-1, self.n_latent))
-        z=zmu#self._reparameterize(zmu, zlogvar)
+        z=self._reparameterize(zmu, zlogvar)
         xmu, xlogvar=self.D1_m(z), self.D1_lv(z)
         return zmu, zlogvar, z, xmu, xlogvar
 
@@ -211,7 +212,7 @@ class rom_vae_dilated(nn.Module):
         return mu + std * eps
 
     def gaussian_log_prob(self, x, mu, logvar):
-        return -0.5*((x-mu)**2)#/torch.exp(logvar) + math.log(2*math.pi) + logvar)
+        return -0.5*((x-mu)**2/torch.exp(logvar) + math.log(2*math.pi) + logvar)
 
     def compute_kld(self, zmu, zlogvar):
         return torch.Tensor([0])#0.5*(zmu**2 + torch.exp(zlogvar) - 1 - zlogvar)

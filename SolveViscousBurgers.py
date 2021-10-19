@@ -50,7 +50,21 @@ def IC(x0, phi):
     u0 = np.reshape(u0, (n,1))
     return u0
 
-n_ic = 1
+def IC_square(x0, phi):
+    n = np.size(x0)
+    u0 = np.zeros(n)
+    for i in range(n):
+        if i < 16:
+            u0[i] = 0
+        elif i < 32:
+            u0[i] = 1
+        else:
+            u0[i] = 0
+    u0 = np.reshape(u0, (n,1))
+    return u0
+
+
+n_ic = 2
 
 nx = 128
 x0 = np.linspace(0,1,nx)
@@ -63,8 +77,11 @@ Usave = np.zeros((n_ic, 1, nsteps, nx))
 Tsave = np.zeros((n_ic, nsteps)) 
 phisave = np.zeros((n_ic,))
 for i in range(n_ic):
-    phi = 1 #np.random.rand(1)*2 + 0.5
-    u0 = IC(x0, phi)
+    phi = 1
+    if i == 0:
+        u0 = IC(x0, phi)
+    else:
+        u0 = IC_square(x0, phi)
     U, T= RK4(u0, dx, dt, F, nsteps)
     Usave[i,0,:,:] = np.transpose(U)
     Tsave[i,:] = T

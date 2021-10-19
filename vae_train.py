@@ -56,7 +56,7 @@ def vae_train(train_data_dir_u, test_data_dir, save_dir, filename, \
     grad_list = np.zeros((epochs,))
     VAE.train()
 
-    print_epochs = 10
+    print_epochs = 1
     t_start = time.time()
     for epoch in range(epochs):
         if epoch % print_epochs == 0:

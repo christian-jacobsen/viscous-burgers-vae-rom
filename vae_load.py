@@ -36,17 +36,17 @@ def vae_load(path):
     #beta_list = 0
     return VAE, loss_reg, loss_rec, beta_list, config
 
-n_latent = 8 # latent space dimension
+n_latent = 32 # latent space dimension
 n_ic = 1   # number of initial conditions in dataset (for outer loop batches)
 ntest = 1200    # number of time snapshots to test (the first ntrain were used in training)
+n_ic_test = 2
 
-
-trials = np.arange(3, 4)
+trials = np.arange(4, 5)
 
 for trial in trials:
     load_path = './Burgers1D/ic_{}/n{}/AE_{}'.format(n_ic,n_latent,trial)
     model_name = 'AE_{}.pth'.format(trial)
-
+    n_ic = n_ic_test
     save_figs = True
     save_gifs = True
 
@@ -55,10 +55,10 @@ for trial in trials:
     ntrain = config['nt'] # number of time snapshots trained on
     nstest = ntest - ntrain # the total number of unseen time snapshots
 
-    train_data_dir = config['train_data_dir_u']#'data/Burgers1D/burgers1d_ic_{}.hdf5'.format(n_ic)#
-    test_data_dir = config['test_data_dir']#'data/Burgers1D/burgers1d_ic_{}.hdf5'.format(n_ic)#
+    train_data_dir = 'data/Burgers1D/burgers1d_ic_{}.hdf5'.format(n_ic)#config['train_data_dir_u']#
+    test_data_dir = 'data/Burgers1D/burgers1d_ic_{}.hdf5'.format(n_ic_test)#config['test_data_dir']#
     train_loader, train_stats = load_data_new(train_data_dir, n_ic, ntrain, shuff=False)
-    test_loader, test_stats = load_data_new(test_data_dir, n_ic, ntest, shuff=False)
+    test_loader, test_stats = load_data_new(test_data_dir, n_ic_test, ntest, shuff=False)
 
     print('Rec loss: ', loss_rec[-1])
     print('Loss: ', loss_reg[-1] + loss_rec[-1])
@@ -74,7 +74,7 @@ for trial in trials:
         U = u
     # test data
     for n, (u, t, phi) in enumerate(test_loader):
-        sub_loader, sub_stats = load_data_sub(u, ntest*n_ic, shuff=False)
+        sub_loader, sub_stats = load_data_sub(u, ntest*n_ic_test, shuff=False)
         for m, (us, _) in enumerate(sub_loader):
             us = us.float()
             u = u.float()
