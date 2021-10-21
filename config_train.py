@@ -47,7 +47,7 @@ save_dir = './Burgers1D/ic_{}/n{}'.format(n_ic,n_latent) # specify a folder wher
                                      #    after training, model and configuration will be saved in a subdirectory as a .pth file
 continue_training = False           # specify if training is continued from a saved model
 tr = 2
-continue_path = './DarcyFlow/p2/multimodal/ssvae/n{}/n_l_study/VAE_{}/VAE_{}.pth'.format(n_latent,tr,tr)       # the path to the previously saved model                
+vae_path = './Burgers1D/ic_{}/n{}/AE_{}/AE_{}.pth'.format(n_ic,n_latent,tr,tr)       # the path to the previously saved model                
 save_interval = None
 # architecture parameters ---------------------------------------------------------------------------------------------
 
@@ -70,6 +70,8 @@ else:
 omega = 0.#40*np.pi/180           # rotation angle of latent space
 # training parameters --------------------------------------------------------------------------------------------------
 
+tau_lookback = 2 #lookback window to train ROM on   
+
 wd = 1e-7                     # weight decay (Adam optimizer)
 batch_size_u = 1             # batch size (training)
 batch_size_l = 512
@@ -88,8 +90,8 @@ if HP:                      # specify the learning rate schedule
         
 else:
     lr_schedule = lr_schedule_0
-    epochs = 5000 # 6500
-    rec_epochs = 5000# 4000
+    epochs = 10 # 6500
+    rec_epochs = 10# 4000
 
 
 

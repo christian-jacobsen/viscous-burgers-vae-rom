@@ -10,7 +10,6 @@ from rom_vae_dilated import *
 from rom_class import *
 from load_data_new import load_data_new
 from load_data_sub import load_data_sub
-from load_data_rom import load_data_rom
 import os
 import torch
 import numpy as np
@@ -22,32 +21,16 @@ from matplotlib.animation import FuncAnimation
 
 plt.close('all')
 
-def vae_load(path):
-    config = torch.load(path)
-    data_channels = 3
-    initial_features = config['initial_features']
-    growth_rate = config['growth_rate']
-    n_latent = config['n_latent']
-    dense_blocks = config['dense_blocks']
-    act = config['activations']
-    VAE = rom_vae_dilated(n_latent, act = act)
-    VAE.load_state_dict(config['model_state_dict'])
-    loss_reg = config['l_reg']
-    loss_rec = config['l_rec']
-    beta_list = config['beta_final']
-    #beta_list = 0
-    return VAE, loss_reg, loss_rec, beta_list, config
-
 def rom_load(path):
     config = torch.load(path)
     n_latent = config['n_latent']
     act = config['activations']
     tau_lookback = config['tau_lookback']
-    ROM = rom_class(n_latent, tau_lookback, act=act)
-    ROM.load_state_dict(config['model_state_dict'])
+    VAE = rom_class(n_latent, tau_lookback, act = act)
+    VAE.load_state_dict(config['model_state_dict'])
     loss_reg = config['l_reg']
     loss_rec = config['l_rec']
-    return ROM, loss_reg, loss_rec, config
+    return VAE, loss_reg, loss_rec, config
 
 n_latent = 32 # latent space dimension
 n_ic = 1   # number of initial conditions in dataset (for outer loop batches)
@@ -55,7 +38,7 @@ ntest = 401    # number of time snapshots to test (the first ntrain were used in
 n_ic_test = 1
 
 trials = np.arange(4, 5)
-rom_trial = 0
+
 for trial in trials:
     load_path = './Burgers1D/ic_{}/n{}/AE_{}'.format(n_ic,n_latent,trial)
     model_name = 'AE_{}.pth'.format(trial)
@@ -63,11 +46,6 @@ for trial in trials:
     save_figs = True
     save_gifs = True
 
-    rom_load_path = './Burgers1D/ic_{}/n{}/ROM_{}'.format(n_ic, n_latent, rom_trial)
-    rom_name = 'ROM_{}.pth'.format(rom_trial) 
-
-    ROM, loss_reg_rom, loss_rec_rom, config_rom = rom_load(os.path.join(rom_load_path, rom_name))
-    tau = config_rom['tau_lookback']
 
     VAE, loss_reg, loss_rec, beta, config = vae_load(os.path.join(load_path, model_name))
     ntrain = config['nt'] # number of time snapshots trained on
@@ -90,21 +68,6 @@ for trial in trials:
                 zmu, zlogvar, z, out_test, out_test_logvar = VAE.forward(us)
                 in_test = us
         U = u
-    rom_data_loader, _ = load_data_rom(zmu, zlogvar, tau, ntrain*n_ic-tau, shuff=False)
-    for n, (muzkT, lvzkT, muz, lvz) in enumerate(rom_data_loader):
-        muzkT = muzkT.float()
-        lvzkT = lvzkT.float()
-        z_rom = ROM._reparameterize(muzkT, lvzkT)
-        muz_F, lvz_F = ROM.forward(z_rom)
-    plt.figure(1000)
-    plt.subplot(2,1,1)
-    plt.imshow(np.transpose(muz.detach().numpy()))
-    plt.subplot(2,1,2)
-    plt.imshow(np.transpose(muz_F.detach().numpy()))
-    if save_figs:
-        plt.savefig(os.path.join(rom_load_path, 'rom_pred_{}.png'.format(trial)))
-    
-    print('muz_F shape: ', np.shape(muz_F))
     # test data
     for n, (u, t, phi) in enumerate(test_loader):
         sub_loader, sub_stats = load_data_sub(u, ntest*n_ic_test, shuff=False)

@@ -9,6 +9,7 @@ from burgers_rom_vae import *
 from rom_vae_dilated import *
 from rom_class import *
 from load_data_new import load_data_new
+from load_data_rom import load_data_rom
 from load_data_sub import load_data_sub
 import torch
 import numpy as np
@@ -23,13 +24,13 @@ def vae_load(path):
     n_latent = config['n_latent']
     dense_blocks = config['dense_blocks']
     act = config['activations']
-    VAE = rom_vae_dilated(n_latent, activations = act)
+    VAE = rom_vae_dilated(n_latent, act = act)
     VAE.load_state_dict(config['model_state_dict'])
     return VAE, config
 
 def rom_train(train_data_dir_u, test_data_dir, save_dir, filename, \
                        epochs, batch_size_u, test_batch_size, nt, tau_lookback, \
-                       wd, lr_schedule, nu, tau, \
+                       wd, lr_schedule, \
                        data_channels, initial_features, dense_blocks, growth_rate, n_latent, \
                        prior, activations, vae_path):
 
@@ -42,9 +43,11 @@ def rom_train(train_data_dir_u, test_data_dir, save_dir, filename, \
     
     VAE, config = vae_load(vae_path)
     VAE = VAE.to(device)
-    optimizer = torch.optim.Adam(VAE.parameters(), lr=lr_schedule(0), weight_decay = wd)
-    ROM = rom_class(n_latent, tau_lookback, act)
+    ROM = rom_class(n_latent, tau_lookback, activations)
+    ROM = ROM.to(device)
+    optimizer = torch.optim.Adam(ROM.parameters(), lr=lr_schedule(0), weight_decay = wd)
     l_rec_list = np.zeros((epochs,))
+    l_reg_list = np.zeros((epochs,))
     #l_ss_list = np.zeros((epochs,))
     ROM.train()
 
@@ -56,47 +59,33 @@ def rom_train(train_data_dir_u, test_data_dir, save_dir, filename, \
             print('Epoch: ', epoch) 
         optimizer.param_groups[0]['lr'] = lr_schedule(epoch) #update learning rate
         
-        for n, (u, _, _) in enumerate(train_loader_u):
-            zmu, zlogvar, _, _, _ = VAE.forward(u)
-            sub_loader, sub_stats = load_data_sub(u, sub_batch_size)
-            for m, (us, _) in enumerate(sub_loader):
-                us = us.to(device, dtype=torch.float)
+        for n, (u, _, _) in enumerate(train_loader_u): # we will load all data in 1 batch here
+            u = u.to(device, dtype=torch.float) 
+            zmu, zlogvar, _, _, _ = VAE.forward(u.view((-1, 1, 128))) # get latent conditionals for all training data
+            sub_loader, sub_stats = load_data_rom(zmu.cpu(), zlogvar.cpu(), tau_lookback, sub_batch_size)
+            for m, (muzkT, lvzkT, muz, lvz) in enumerate(sub_loader):
+                muzkT = muzkT.to(device, dtype=torch.float)
+                lvzkT = lvzkT.to(device, dtype=torch.float)
+                muz = muz.to(device, dtype=torch.float)
+                lvz = lvz.to(device, dtype=torch.float)
+                zkT = ROM._reparameterize(muzkT, lvzkT)
                 if epoch==0: # compute initialized losses
-                    _, _, _, _, _, l_rec, l_reg = VAE.compute_loss(us)
+                    _, _, l_rec, l_reg = ROM.compute_loss(zkT, muz, lvz)
                     l_rec_0 = torch.mean(l_rec)
                     l_reg_0 = torch.mean(l_reg)
                     #l_ss_0 = torch.mean(l_ss) 
                 
                 optimizer.zero_grad()
         
-                _, _, _, _, _, l_rec, l_reg = VAE.compute_loss(us)
+                _, _, l_rec, l_reg = ROM.compute_loss(zkT, muz, lvz)
                 
                 l_rec = torch.mean(l_rec)
                 #l_ss = torch.mean(l_ss)
-                if epoch < rec_epochs:
-                    if torch.mean(l_reg) > 1e10:
-                        beta = 1
-                    else:
-                        beta = beta0
-                    loss = l_rec# + l_ss
-                else:
-                    beta = VAE.update_beta(beta, l_rec, nu, tau)
-                    if beta > 1:
-                        beta = 1
                     
-                    loss = beta*(torch.mean(l_reg)) + l_rec# + l_ss
+                loss = (torch.mean(l_reg)) + l_rec# + l_ss
                     
-                loss.backward()
-                total_norm = 0
-                for p in  VAE.parameters():
-                    total_norm = 0#p.grad.detach().data.norm(2).item() **2 + total_norm
-                total_norm = total_norm ** 0.5
+                loss.backward(retain_graph=True)
 
-                if total_norm <= 1e8: 
-                    optimizer.step()
-                else:
-                    print('Grad too large!')
-            
             
             l_reg = torch.mean(l_reg)
             l_rec = l_rec.cpu().detach().numpy()
@@ -106,12 +95,9 @@ def rom_train(train_data_dir_u, test_data_dir, save_dir, filename, \
             l_rec_list[epoch] = l_rec
             l_reg_list[epoch] = l_reg
             #l_ss_list[epoch] = l_ss
-            beta_list[epoch] = beta
-            grad_list[epoch] = total_norm
 
         if epoch % print_epochs == 0:
             t_mid = time.time()
-            print('beta = ', beta)
             print('l_rec = ', l_rec)
             print('l_reg = ', l_reg)   
             #print('l_ss  = ', l_ss)
@@ -130,13 +116,12 @@ def rom_train(train_data_dir_u, test_data_dir, save_dir, filename, \
     l_rec_list = np.insert(l_rec_list, 0, l_rec_0.cpu().detach().numpy())
     l_reg_list = np.insert(l_reg_list, 0, l_reg_0.cpu().detach().numpy())
     #l_ss_list = np.insert(l_ss_list, 0, l_ss_0.cpu().detach().numpy())
-    beta_list = np.insert(beta_list, 0, beta0)
      
     #save model
     config = {'train_data_dir_u': train_data_dir_u,
               #'train_data_dir_l': train_data_dir_l,
               'test_data_dir': test_data_dir,
-              'model': 'vae',
+              'model': 'rom',
               'n_latent': n_latent,
               'activations': activations,
               'dense_blocks': dense_blocks,
@@ -144,21 +129,15 @@ def rom_train(train_data_dir_u, test_data_dir, save_dir, filename, \
               'growth_rate': growth_rate,
               'batch_size_u': batch_size_u,
               'nt': nt,
+              'tau_lookback': tau_lookback,
               'test_batch_size': test_batch_size,
               'optimizer': optimizer,
-              'prior': prior,
-              'beta0': beta0,
-              'nu': nu,
-              'tau': tau,
-              'rec_epochs': rec_epochs,
               'epochs': epochs,
               'dis_score': disentanglement_score,
               'l_reg': l_reg_list,
               'l_rec': l_rec_list,
               #'l_ss': l_ss_list,
-              'gradient_list': grad_list,
-              'beta_final': beta_list,
-              'model_state_dict': VAE.state_dict(),
+              'model_state_dict': ROM.state_dict(),
               'optimizer_state_dict': optimizer.state_dict(), 
               'weight_decay': wd
               }

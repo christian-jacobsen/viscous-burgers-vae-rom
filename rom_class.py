@@ -121,6 +121,7 @@ class rom_class(nn.Module):
 
         
         # input shape: (n_batch, n_lookback, n_x)
+        #self.F.add_module('initial_reshape', _Reshape((-1, 1, self.n_latent)))
         d = [1, 2]
         channels = [self.tau, 32, 32]
         for (n, dil) in enumerate(d):
@@ -148,22 +149,22 @@ class rom_class(nn.Module):
     def gaussian_log_prob(self, x, mu, logvar):
         return -0.5*((x-mu)**2/torch.exp(logvar) + math.log(2*math.pi) + logvar)
 
-    def compute_kld(self, zmu, zlogvar):
-        return torch.Tensor([0])#0.5*(zmu**2 + torch.exp(zlogvar) - 1 - zlogvar)
-        #return 0.5*(zmu**2/torch.exp(self.prior_logvar) + torch.exp(zlogvar)/torch.exp(self.prior_logvar) - 1 - zlogvar + self.prior_logvar)#0.5*(2*math.log(0.25)- 0.5*torch.sum(zlogvar, 1) - 2 + 1/0.25*torch.sum(zlogvar.mul(0.5).exp_(), 1) + torch.sum((0.5-zmu)**2, 1))#
+    def compute_kld(self, zmu, zlogvar, muz, lvz):
+        #return 0.5*(zmu**2 + torch.exp(zlogvar) - 1 - zlogvar)
+        return 0.5*((zmu-muz)**2/torch.exp(lvz) + torch.exp(zlogvar)/torch.exp(lvz) - 1 - zlogvar + lvz)#0.5*(2*math.log(0.25)- 0.5*torch.sum(zlogvar, 1) - 2 + 1/0.25*torch.sum(zlogvar.mul(0.5).exp_(), 1) + torch.sum((0.5-zmu)**2, 1))#
 
     def compute_kld_ss(self, zmu, zlogvar, zl):
         return 0.5*((zmu-zl)**2/torch.exp(self.zl_logvar) + torch.exp(zlogvar)/torch.exp(self.zl_logvar) - 1 - zlogvar + self.zl_logvar)
 
-    def compute_loss(self, ztau, z):
-        # in this case, we have xu = unlabeled data, xl = labeled data, zl = representation of labeled data
+    def compute_loss(self, zkT, muz, lvz):
+        # compute loss given some sample of the previous tau snapshots
         # freebits = 0
-        zmu, zlogvar=self.forward(ztau)
-        l_rec=-torch.sum(self.gaussian_log_prob(z, zmu, zlogvar), 1)
-        l_reg=0#self.compute_kld(zmu, zlogvar)
+        zmu, zlogvar=self.forward(zkT)
+        l_rec=self.compute_kld(zmu, zlogvar, muz, lvz)#-torch.sum(self.gaussian_log_prob(z, zmu, zlogvar), 1)
+        l_reg=torch.Tensor([0])#self.compute_kld(zmu, zlogvar)
         # l_ss = -torch.sum(self.gaussian_log_prob(zl, zmu[np.shape(xu)[0]:,:], zlogvar[np.shape(xu)[0]:,:]), 1)
         # l_ss = -self.compute_kld_ss(zmu[np.shape(xu)[0]:,:], zlogvar[np.shape(xu)[0]:,:], zl)
-        return zmu, zlogvar, z, xmu, xlogvar, l_rec, l_reg  # , l_ss
+        return zmu, zlogvar, l_rec, l_reg  # , l_ss
 
     def update_beta(self, beta, rec, nu, tau):
         def H(d):
