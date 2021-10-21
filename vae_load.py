@@ -92,10 +92,18 @@ for trial in trials:
         U = u
     rom_data_loader, _ = load_data_rom(zmu, zlogvar, tau, ntrain*n_ic-tau, shuff=False)
     for n, (muzkT, lvzkT, muz, lvz) in enumerate(rom_data_loader):
+        muz_F = torch.zeros(np.shape(muz))
+        lvz_F = torch.zeros(np.shape(lvz))
         muzkT = muzkT.float()
         lvzkT = lvzkT.float()
         z_rom = ROM._reparameterize(muzkT, lvzkT)
-        muz_F, lvz_F = ROM.forward(z_rom)
+        muz_F[0,:], _ = ROM.forward(muzkT[0,:,:].view((-1,tau,n_latent)))
+        inp = muzkT[0,:,:].view((1,tau,n_latent))
+        for R in range(np.shape(muz)[0]-1):
+            inp = torch.cat((muz_F[R,:].view((1,1,n_latent)), inp[0,1:,:].view(1,tau-1,n_latent)), dim=1)
+            print('inp shape: ', np.shape(inp))
+            muz_F[R+1,:], _ = ROM.forward(inp)
+        #muz_F, lvz_F = ROM.forward(z_rom)
     plt.figure(1000)
     plt.subplot(2,1,1)
     plt.imshow(np.transpose(muz.detach().numpy()))
