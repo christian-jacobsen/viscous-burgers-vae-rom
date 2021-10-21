@@ -25,7 +25,7 @@ def load_data_rom(z, tau, batch_size, shuff = True):
     ztau = torch.zeros((np.shape(z)[0]-tau, tau, nz))
     for i in range(np.shape(z)[0]-tau):
         ztau[i, :, :] = z[i:i+tau, :, :] 
-    z = z[tau:, :, :] 
+    z = z[tau:, 0, :] 
 
     dataset = TensorDataset(ztau,z)
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuff, **kwargs)
