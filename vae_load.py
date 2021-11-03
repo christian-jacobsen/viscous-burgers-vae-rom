@@ -19,6 +19,7 @@ from sklearn.neighbors import KernelDensity
 from scipy.stats import multivariate_normal
 from mpl_toolkits import mplot3d
 from matplotlib.animation import FuncAnimation
+import h5py
 
 plt.close('all')
 
@@ -51,11 +52,11 @@ def rom_load(path):
 
 n_latent = 32 # latent space dimension
 n_ic = 1   # number of initial conditions in dataset (for outer loop batches)
-ntest = 401    # number of time snapshots to test (the first ntrain were used in training)
+ntest = 601    # number of time snapshots to test (the first ntrain were used in training)
 n_ic_test = 1
 
 trials = np.arange(4, 5)
-rom_trial = 0
+rom_trial = 8
 for trial in trials:
     load_path = './Burgers1D/ic_{}/n{}/AE_{}'.format(n_ic,n_latent,trial)
     model_name = 'AE_{}.pth'.format(trial)
@@ -70,7 +71,7 @@ for trial in trials:
     tau = config_rom['tau_lookback']
 
     VAE, loss_reg, loss_rec, beta, config = vae_load(os.path.join(load_path, model_name))
-    ntrain = config['nt'] # number of time snapshots trained on
+    ntrain = config['nt']+200 # number of time snapshots trained on
     nstest = ntest - ntrain # the total number of unseen time snapshots
 
     train_data_dir = 'data/Burgers1D/burgers1d_ic_{}.hdf5'.format(n_ic)#config['train_data_dir_u']#
@@ -88,27 +89,44 @@ for trial in trials:
             u = u.float()
             if n == 0:
                 zmu, zlogvar, z, out_test, out_test_logvar = VAE.forward(us)
-                in_test = us
+                in_test = us      
         U = u
+    f1 = h5py.File(os.path.join(rom_load_path, 'latent_data.hdf5'), "w")
+    f1.create_dataset("zmu", np.shape(zmu), data=zmu.detach().numpy())
+    f1.create_dataset("zlv", np.shape(zlogvar), data=zlogvar.detach().numpy())
+    f1.close
+    zmu = (zmu - config_rom['data_mu_min'])/(config_rom['data_mu_max']-config_rom['data_mu_min'])
     rom_data_loader, _ = load_data_rom(zmu, zlogvar, tau, ntrain*n_ic-tau, shuff=False)
     for n, (muzkT, lvzkT, muz, lvz) in enumerate(rom_data_loader):
         muz_F = torch.zeros(np.shape(muz))
         lvz_F = torch.zeros(np.shape(lvz))
         muzkT = muzkT.float()
         lvzkT = lvzkT.float()
-        z_rom = ROM._reparameterize(muzkT, lvzkT)
+        z_rom = muzkT#ROM._reparameterize(muzkT, lvzkT)
         muz_F[0,:], _ = ROM.forward(muzkT[0,:,:].view((-1,tau,n_latent)))
         inp = muzkT[0,:,:].view((1,tau,n_latent))
         for R in range(np.shape(muz)[0]-1):
             inp = torch.cat((muz_F[R,:].view((1,1,n_latent)), inp[0,1:,:].view(1,tau-1,n_latent)), dim=1)
-            print('inp shape: ', np.shape(inp))
-            muz_F[R+1,:], _ = ROM.forward(inp)
+            #print('inp shape: ', np.shape(inp))
+            muz_F[R+1,:], _ = ROM.forward(inp)#ROM.forward(muzkT[R+1,:,:].view((-1,tau,n_latent)))#
         #muz_F, lvz_F = ROM.forward(z_rom)
+    plt.figure(1001)
+    plot_ind = 597
+    plt.subplot(2,2,1)
+    plt.plot(muzkT[plot_ind,0,:].detach().numpy())
+    plt.subplot(2,2,2)
+    plt.plot(muzkT[plot_ind,1,:].detach().numpy())
+    plt.subplot(2,2,3)
+    plt.plot(muz_F[plot_ind,:].detach().numpy())
+    if save_figs:
+        plt.savefig(os.path.join(rom_load_path, 'initial_forward_{}.png'.format(trial)))
     plt.figure(1000)
     plt.subplot(2,1,1)
     plt.imshow(np.transpose(muz.detach().numpy()))
+    plt.colorbar()
     plt.subplot(2,1,2)
     plt.imshow(np.transpose(muz_F.detach().numpy()))
+    plt.colorbar()
     if save_figs:
         plt.savefig(os.path.join(rom_load_path, 'rom_pred_{}.png'.format(trial)))
     

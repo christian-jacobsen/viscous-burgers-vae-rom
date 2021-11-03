@@ -12,14 +12,20 @@ import torch.nn as nn
 
 def lr_schedule_0(epoch):
     # used for VAE w/out HP network
-    e0 = 2500
-    e1 = 7500
+    e0 = 1500
+    e1 = 3500
+    e2 = 6000
+    e3 = 8500
     if epoch < e0:
         return 0.0005
     elif epoch < e1:
         return 0.0001
-    else:
+    elif epoch < e2:
         return 0.00005
+    elif epoch < e3:
+        return 0.00001
+    else:
+        return 0.000005
     
 def lr_schedule_1(epoch):
     # used for VAE w/ HP network (more sensitive to learning rate)
@@ -46,14 +52,14 @@ test_data_dir = 'data/Burgers1D/burgers1d_ic_{}.hdf5'.format(n_ic)     # testing
 save_dir = './Burgers1D/ic_{}/n{}'.format(n_ic,n_latent) # specify a folder where all similar models belong. 
                                      #    after training, model and configuration will be saved in a subdirectory as a .pth file
 continue_training = False           # specify if training is continued from a saved model
-tr = 2
+tr = 4
 vae_path = './Burgers1D/ic_{}/n{}/AE_{}/AE_{}.pth'.format(n_ic,n_latent,tr,tr)       # the path to the previously saved model                
 save_interval = None
 # architecture parameters ---------------------------------------------------------------------------------------------
 
 HP = False                 # include heirarchical prior network?
 
-act = nn.ReLU()
+act = nn.GELU()#inplace=True)
 dense_blocks = [4, 6, 4]    # vector containing dense blocks and their length
 growth_rate = 4             # see dense architecture for detailed explantation. dense block growth rate
 data_channels = 3           # number of input channels
@@ -73,7 +79,7 @@ omega = 0.#40*np.pi/180           # rotation angle of latent space
 tau_lookback = 2 #lookback window to train ROM on   
 
 wd = 1e-7                     # weight decay (Adam optimizer)
-batch_size_u = 1             # batch size (training)
+batch_size_u = 512             # batch size (training)
 batch_size_l = 512
 test_batch_size = 1       # not used during training, but saved for post-processing
 beta0 = 0.000000001         # \beta during reconstruction-only phase
@@ -90,8 +96,8 @@ if HP:                      # specify the learning rate schedule
         
 else:
     lr_schedule = lr_schedule_0
-    epochs = 10 # 6500
-    rec_epochs = 10# 4000
+    epochs = 10000 # 6500
+    rec_epochs = 10000# 4000
 
 
 

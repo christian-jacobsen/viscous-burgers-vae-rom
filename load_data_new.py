@@ -28,7 +28,9 @@ def load_data_new(data_dir, batch_size, nt, shuff = True):
 
     kwargs = {'num_workers': 0,
               'pin_memory': True} if torch.cuda.is_available() else {}
-
+    if (batch_size=='all'):
+        batch_size = np.shape(u_data)[0]
+        
     dataset = TensorDataset(torch.tensor(u_data[:,:,0:nt,:]), torch.tensor(t_data[:,0:nt]), torch.tensor(phi_data))
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuff, **kwargs)
 

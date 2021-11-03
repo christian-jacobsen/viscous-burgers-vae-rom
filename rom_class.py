@@ -19,6 +19,12 @@ class _PadCyclic_1d(nn.Module):
         shape = (np.shape(x)[0], np.shape(x)[1], self.pad)
         return torch.cat([x[:, :, -self.pad:].view(shape), x, x[:, :, :self.pad].view(shape)], -1)
 
+class _NegReLU(nn.Module):
+    # negative relu activation
+    def __init__(self):
+        super(_NegReLU, self).__init__()
+    def forward(self, x):
+        return -F.relu(x)
 
 class _Reshape(nn.Module):
     def __init__(self, shape):
@@ -101,7 +107,7 @@ class _DilationBlock_1d(nn.Sequential):
 
         self.add_module('cyclic_pad', _PadCyclic_1d(dil))
         #self.add_module('norm', nn.BatchNorm1d(in_chan))
-        self.add_module('dil_conv', nn.Conv1d(in_chan, out_chan, kernel_size=3, dilation=dil))
+        self.add_module('dil_conv', nn.Conv1d(in_chan, out_chan, kernel_size=3, dilation=dil, bias=False))
         self.add_module('act', act)
 
 class rom_class(nn.Module):
@@ -109,30 +115,31 @@ class rom_class(nn.Module):
 
         super(rom_class, self).__init__()
 
-        # set manually for testing
+        # set manually for code testing
         data_channels = 1
         initial_features = 2
         K = 4  # growth rate
         self.n_latent = n_latent
         self.tau = tau # this is the lookback window size
 
-        self.F = nn.Sequential()
+        self.F1 = nn.Sequential()
         self.lv = nn.Parameter(torch.zeros((1, self.n_latent)))
 
         
         # input shape: (n_batch, n_lookback, n_x)
-        #self.F.add_module('initial_reshape', _Reshape((-1, 1, self.n_latent)))
-        d = [1, 2]
-        channels = [self.tau, 32, 32]
+        #self.F1.add_module('initial_reshape', _Reshape((-1, 1, self.n_latent)))
+        d = [1, 2, 4]
+        channels = [self.tau, 32, 64, 64]
         for (n, dil) in enumerate(d):
             dil_block = _DilationBlock_1d(channels[n], channels[n+1], dil, act)
-            self.F.add_module('dilation_{}'.format(n+1), dil_block)
-
-        self.F.add_module('final_conv', nn.Conv1d(channels[-1], 1, kernel_size=1, stride=1, dilation=1))
-        self.F.add_module('final_reshape', _Reshape((-1, self.n_latent)))
+            self.F1.add_module('dilation_{}'.format(n+1), dil_block)
+        self.F1.add_module('final_conv', nn.Conv1d(channels[-1], 1, kernel_size=1, stride=1, dilation=1))
+        self.F1.add_module('negative relu', _NegReLU())
+        #self.F1.add_module('final activation', nn.ReLU())
+        self.F1.add_module('final_reshape', _Reshape((-1, self.n_latent)))
 
     def forward(self, ztau):
-        zmu, zlogvar=self.F(ztau), self.lv
+        zmu, zlogvar = self.F1(ztau)+ztau[:,0,:], self.lv
         #C = 7 # correlation length.. estimated as maximum receptive field size (dilation 8)
         #weights = F.softmax(-zlogvar, dim=-1)
         #zmu = (zmu * weights).sum(dim=-1).view(-1, self.n_latent)
@@ -160,7 +167,7 @@ class rom_class(nn.Module):
         # compute loss given some sample of the previous tau snapshots
         # freebits = 0
         zmu, zlogvar=self.forward(zkT)
-        l_rec=self.compute_kld(zmu, zlogvar, muz, lvz)#-torch.sum(self.gaussian_log_prob(z, zmu, zlogvar), 1)
+        l_rec=torch.sum((zmu-muz)**2,-1)#self.compute_kld(zmu, zlogvar, muz, lvz)#-torch.sum(self.gaussian_log_prob(z, zmu, zlogvar), 1)
         l_reg=torch.Tensor([0])#self.compute_kld(zmu, zlogvar)
         # l_ss = -torch.sum(self.gaussian_log_prob(zl, zmu[np.shape(xu)[0]:,:], zlogvar[np.shape(xu)[0]:,:]), 1)
         # l_ss = -self.compute_kld_ss(zmu[np.shape(xu)[0]:,:], zlogvar[np.shape(xu)[0]:,:], zl)

@@ -11,9 +11,12 @@ from rom_class import *
 from load_data_new import load_data_new
 from load_data_rom import load_data_rom
 from load_data_sub import load_data_sub
+from load_data_rom_path import load_data_rom_path
 import torch
 import numpy as np
 import time
+import os
+
 
 
 def vae_load(path):
@@ -39,11 +42,12 @@ def rom_train(train_data_dir_u, test_data_dir, save_dir, filename, \
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(device)
        
-    train_loader_u, train_stats_u = load_data_new(train_data_dir_u, batch_size_u, nt) # unlabeled data
+    train_loader_u, train_stats_u = load_data_new(train_data_dir_u, 'all', nt) # unlabeled data
     
-    VAE, config = vae_load(vae_path)
-    VAE = VAE.to(device)
+#    VAE, config = vae_load(vae_path)
+#    VAE = VAE.to(device)
     ROM = rom_class(n_latent, tau_lookback, activations)
+    print(ROM)
     ROM = ROM.to(device)
     optimizer = torch.optim.Adam(ROM.parameters(), lr=lr_schedule(0), weight_decay = wd)
     l_rec_list = np.zeros((epochs,))
@@ -53,48 +57,56 @@ def rom_train(train_data_dir_u, test_data_dir, save_dir, filename, \
 
     print_epochs = 1
     t_start = time.time()
+
+    '''
+    for n, (u, _, _) in enumerate(train_loader_u): # we will load all data in 1 batch here
+        u = u.to(device, dtype=torch.float) 
+        zmu, zlogvar, _, _, _ = VAE.forward(u.view((-1, 1, 128))) # get latent conditionals for all training data
+        data_mu_min = torch.min(zmu)
+        data_mu_max = torch.max(zmu)
+        zmu = (zmu-data_mu_min)/(data_mu_max-data_mu_min)
+    '''
+#    sub_loader, sub_stats = load_data_rom(zmu.cpu(), zlogvar.cpu(), tau_lookback, sub_batch_size)
+    sub_loader, sub_stats, data_mu_min, data_mu_max = load_data_rom_path(os.path.join(save_dir,"latent_data.hdf5"), tau_lookback, sub_batch_size, shuff=True)
+
     for epoch in range(epochs):
         if epoch % print_epochs == 0:
             print('=======================================')
             print('Epoch: ', epoch) 
         optimizer.param_groups[0]['lr'] = lr_schedule(epoch) #update learning rate
         
-        for n, (u, _, _) in enumerate(train_loader_u): # we will load all data in 1 batch here
-            u = u.to(device, dtype=torch.float) 
-            zmu, zlogvar, _, _, _ = VAE.forward(u.view((-1, 1, 128))) # get latent conditionals for all training data
-            sub_loader, sub_stats = load_data_rom(zmu.cpu(), zlogvar.cpu(), tau_lookback, sub_batch_size)
-            for m, (muzkT, lvzkT, muz, lvz) in enumerate(sub_loader):
-                muzkT = muzkT.to(device, dtype=torch.float)
-                lvzkT = lvzkT.to(device, dtype=torch.float)
-                muz = muz.to(device, dtype=torch.float)
-                lvz = lvz.to(device, dtype=torch.float)
-                zkT = ROM._reparameterize(muzkT, lvzkT)
-                if epoch==0: # compute initialized losses
-                    _, _, l_rec, l_reg = ROM.compute_loss(zkT, muz, lvz)
-                    l_rec_0 = torch.mean(l_rec)
-                    l_reg_0 = torch.mean(l_reg)
-                    #l_ss_0 = torch.mean(l_ss) 
-                
-                optimizer.zero_grad()
-        
+        for m, (muzkT, lvzkT, muz, lvz) in enumerate(sub_loader):
+            muzkT = muzkT.to(device, dtype=torch.float)
+            lvzkT = lvzkT.to(device, dtype=torch.float)
+            muz = muz.to(device, dtype=torch.float)
+            lvz = lvz.to(device, dtype=torch.float)
+            zkT = muzkT+0.#ROM._reparameterize(muzkT, lvzkT)
+            if epoch==0: # compute initialized losses
                 _, _, l_rec, l_reg = ROM.compute_loss(zkT, muz, lvz)
+                l_rec_0 = torch.mean(l_rec)
+                l_reg_0 = torch.mean(l_reg)
+                #l_ss_0 = torch.mean(l_ss) 
+            
+            optimizer.zero_grad()
+    
+            _, _, l_rec, l_reg = ROM.compute_loss(zkT, muz, lvz)
+            
+            l_rec = torch.mean(l_rec)
+            #l_ss = torch.mean(l_ss)
                 
-                l_rec = torch.mean(l_rec)
-                #l_ss = torch.mean(l_ss)
-                    
-                loss = (torch.mean(l_reg)) + l_rec# + l_ss
-                    
-                loss.backward(retain_graph=True)
-
-            
-            l_reg = torch.mean(l_reg)
-            l_rec = l_rec.cpu().detach().numpy()
-            l_reg = l_reg.cpu().detach().numpy()
-            #l_ss = l_ss.cpu().detach().numpy()
-            
-            l_rec_list[epoch] = l_rec
-            l_reg_list[epoch] = l_reg
-            #l_ss_list[epoch] = l_ss
+            loss = l_rec# (torch.mean(l_reg)) + l_rec# + l_ss
+                
+            loss.backward()#retain_graph=True)
+            optimizer.step()
+        
+        l_reg = torch.mean(l_reg)
+        l_rec = l_rec.cpu().detach().numpy()
+        l_reg = l_reg.cpu().detach().numpy()
+        #l_ss = l_ss.cpu().detach().numpy()
+        
+        l_rec_list[epoch] = l_rec
+        l_reg_list[epoch] = l_reg
+        #l_ss_list[epoch] = l_ss
 
         if epoch % print_epochs == 0:
             t_mid = time.time()
@@ -121,6 +133,8 @@ def rom_train(train_data_dir_u, test_data_dir, save_dir, filename, \
     config = {'train_data_dir_u': train_data_dir_u,
               #'train_data_dir_l': train_data_dir_l,
               'test_data_dir': test_data_dir,
+              'data_mu_min': data_mu_min, #scaling factor for data
+              'data_mu_max': data_mu_max, # '''
               'model': 'rom',
               'n_latent': n_latent,
               'activations': activations,
