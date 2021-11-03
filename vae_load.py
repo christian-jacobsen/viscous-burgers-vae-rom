@@ -72,6 +72,7 @@ for trial in trials:
 
     VAE, loss_reg, loss_rec, beta, config = vae_load(os.path.join(load_path, model_name))
     ntrain = config['nt']+200 # number of time snapshots trained on
+    ntrain0 = config['nt']
     nstest = ntest - ntrain # the total number of unseen time snapshots
 
     train_data_dir = 'data/Burgers1D/burgers1d_ic_{}.hdf5'.format(n_ic)#config['train_data_dir_u']#
@@ -123,10 +124,16 @@ for trial in trials:
     plt.figure(1000)
     plt.subplot(2,1,1)
     plt.imshow(np.transpose(muz.detach().numpy()))
-    plt.colorbar()
+    plt.xlabel('t')
+    plt.ylabel('z')
+    plt.plot([ntrain0,ntrain0], [0,n_latent], 'k--', linewidth=3)
+    #plt.colorbar()
     plt.subplot(2,1,2)
     plt.imshow(np.transpose(muz_F.detach().numpy()))
-    plt.colorbar()
+    plt.xlabel('t')
+    plt.ylabel('z')
+    plt.plot([ntrain0,ntrain0], [0,n_latent], 'k--', linewidth=3)
+    #plt.colorbar()
     if save_figs:
         plt.savefig(os.path.join(rom_load_path, 'rom_pred_{}.png'.format(trial)))
     

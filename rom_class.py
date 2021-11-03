@@ -134,7 +134,7 @@ class rom_class(nn.Module):
             dil_block = _DilationBlock_1d(channels[n], channels[n+1], dil, act)
             self.F1.add_module('dilation_{}'.format(n+1), dil_block)
         self.F1.add_module('final_conv', nn.Conv1d(channels[-1], 1, kernel_size=1, stride=1, dilation=1))
-        self.F1.add_module('negative relu', _NegReLU())
+        #self.F1.add_module('negative relu', _NegReLU())
         #self.F1.add_module('final activation', nn.ReLU())
         self.F1.add_module('final_reshape', _Reshape((-1, self.n_latent)))
 
