@@ -42,7 +42,7 @@ def lr_schedule_1(epoch):
 # dataset and save paths ----------------------------------------------------------------------------------------------
 n_latent = 32              # latent dimension
 n_ic = 1                 # number of initial conditions (for dataset)
-nt = 400                 # number of time snapshots to train on
+nt = 100                 # number of time snapshots to train on
 #arch = 'dilated-denseblock'  # architecture specifying 'encoder-decoder' type (not working)
 
 train_data_dir_u = 'data/Burgers1D/burgers1d_ic_{}.hdf5'.format(n_ic)   # training data directory
@@ -54,6 +54,7 @@ save_dir = './Burgers1D/ic_{}/n{}'.format(n_ic,n_latent) # specify a folder wher
 continue_training = False           # specify if training is continued from a saved model
 tr = 4
 vae_path = './Burgers1D/ic_{}/n{}/AE_{}/AE_{}.pth'.format(n_ic,n_latent,tr,tr)       # the path to the previously saved model                
+continue_path = vae_path
 save_interval = None
 # architecture parameters ---------------------------------------------------------------------------------------------
 
