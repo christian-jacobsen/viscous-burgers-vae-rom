@@ -136,7 +136,7 @@ for trial in trials:
     plt.colorbar()
     plt.subplot(3,1,3)
     abs_error = (muz-muz_F)
-    plt.imshow(np.transpose(abs_error.detach().numpy()))
+    plt.imshow(np.transpose(abs_error.detach().numpy()),cmap='seismic')
     plt.xlabel('t')
     plt.ylabel('absolute error')
     plt.plot([ntrain0,ntrain0], [0,n_latent], 'k--', linewidth=3)
